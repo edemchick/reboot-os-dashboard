@@ -1,14 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Target, TrendingUp, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/router';
+import { Calendar, Target, TrendingUp, AlertCircle, CheckCircle, Clock, LogOut } from 'lucide-react';
 
 export default function Dashboard() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (status === 'loading') return; // Still loading
+    if (!session) {
+      router.push('/login');
+      return;
+    }
     fetchGoals();
-  }, []);
+  }, [session, status, router]);
 
   const fetchGoals = async () => {
     try {
@@ -60,6 +69,18 @@ export default function Dashboard() {
     return diffDays;
   };
 
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return null; // Will redirect to login
+  }
+
   const prioritizedGoals = goals.filter(goal => 
     goal.quarter !== 'Not Prioritized' && goal.quarter !== 'Backlog'
   );
@@ -88,12 +109,16 @@ export default function Dashboard() {
                 <div className="text-2xl font-bold text-blue-600">{overallProgress}%</div>
                 <div className="text-sm text-gray-500">Overall Progress</div>
               </div>
-              <button
-                onClick={fetchGoals}
-                className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Refresh
-              </button>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span>Welcome, {session.user.name}</span>
+                <button
+                  onClick={() => signOut()}
+                  className="flex items-center gap-1 px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </button>
+              </div>
             </div>
           </div>
         </div>
