@@ -1,5 +1,14 @@
 import { WebClient } from '@slack/web-api';
 
+// Configure API route to handle form data
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '1mb',
+    },
+  },
+}
+
 export default async function handler(req, res) {
   console.log('=== Slack Interactive API Called ===');
   console.log('Method:', req.method);
@@ -22,7 +31,20 @@ export default async function handler(req, res) {
   try {
     // Parse the Slack payload
     console.log('Parsing payload...');
-    const payload = JSON.parse(req.body.payload);
+    let payload;
+    
+    if (typeof req.body === 'string') {
+      // If body is a string, it might be form-encoded
+      const urlParams = new URLSearchParams(req.body);
+      payload = JSON.parse(urlParams.get('payload'));
+    } else if (req.body.payload) {
+      // If body is an object with payload property
+      payload = JSON.parse(req.body.payload);
+    } else {
+      // If body is already the payload object
+      payload = req.body;
+    }
+    
     console.log('Payload type:', payload.type);
     console.log('Payload keys:', Object.keys(payload));
     
@@ -30,20 +52,36 @@ export default async function handler(req, res) {
 
     if (payload.type === 'block_actions') {
       // Handle button clicks
+      console.log('Handling block action...');
       const action = payload.actions[0];
+      console.log('Action ID:', action.action_id);
       
       if (action.action_id === 'start_checkin') {
         const goalData = JSON.parse(action.value);
+        console.log('Opening modal for goal:', goalData.goalTitle);
         
         // Open a modal for the check-in form
         await slack.views.open({
           trigger_id: payload.trigger_id,
           view: createCheckinModal(goalData)
         });
+        console.log('Modal opened successfully');
       }
     } else if (payload.type === 'view_submission') {
       // Handle modal submission
-      await handleCheckinSubmission(slack, payload, channelId);
+      console.log('Handling view submission...');
+      
+      // Respond immediately to Slack, then process async
+      res.status(200).json({ success: true });
+      
+      // Process the submission in the background
+      try {
+        await handleCheckinSubmission(slack, payload, channelId);
+        console.log('Submission handled successfully');
+      } catch (error) {
+        console.error('Error handling submission:', error);
+      }
+      return; // Exit early since we already sent response
     }
 
     console.log('Slack interaction handled successfully');
