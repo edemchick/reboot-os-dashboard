@@ -1,7 +1,13 @@
 import { WebClient } from '@slack/web-api';
 
 export default async function handler(req, res) {
+  console.log('=== Slack Interactive API Called ===');
+  console.log('Method:', req.method);
+  console.log('Content-Type:', req.headers['content-type']);
+  console.log('Raw body:', req.body);
+
   if (req.method !== 'POST') {
+    console.log('Invalid method:', req.method);
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -9,12 +15,17 @@ export default async function handler(req, res) {
   const channelId = process.env.SLACK_CHANNEL_ID;
   
   if (!slackToken) {
+    console.error('SLACK_BOT_TOKEN not configured');
     return res.status(500).json({ error: 'Slack bot token not configured' });
   }
 
   try {
     // Parse the Slack payload
+    console.log('Parsing payload...');
     const payload = JSON.parse(req.body.payload);
+    console.log('Payload type:', payload.type);
+    console.log('Payload keys:', Object.keys(payload));
+    
     const slack = new WebClient(slackToken);
 
     if (payload.type === 'block_actions') {
@@ -35,10 +46,18 @@ export default async function handler(req, res) {
       await handleCheckinSubmission(slack, payload, channelId);
     }
 
+    console.log('Slack interaction handled successfully');
     res.status(200).json({ success: true });
   } catch (error) {
-    console.error('Error handling Slack interaction:', error);
-    res.status(500).json({ error: error.message });
+    console.error('=== Slack Interactive Error ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Raw request body:', req.body);
+    res.status(500).json({ 
+      error: error.message,
+      details: 'Check server logs for more details'
+    });
   }
 }
 
@@ -194,23 +213,42 @@ async function handleCheckinSubmission(slack, payload, channelId) {
 }
 
 async function updateGoalProgress(goalId, newProgress) {
+  console.log('Updating goal progress:', { goalId, newProgress });
+  
+  const notionToken = process.env.NOTION_TOKEN;
+  
+  if (!notionToken) {
+    console.error('NOTION_TOKEN not configured');
+    return;
+  }
+
   try {
-    // Call our internal API to update the goal
-    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/goals/update-progress`, {
-      method: 'POST',
+    // Update the goal's progress directly in Notion
+    const response = await fetch(`https://api.notion.com/v1/pages/${goalId}`, {
+      method: 'PATCH',
       headers: {
+        'Authorization': `Bearer ${notionToken}`,
         'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28'
       },
       body: JSON.stringify({
-        goalId,
-        progress: newProgress
+        properties: {
+          Progress: {
+            number: newProgress
+          }
+        }
       })
     });
-    
+
     if (!response.ok) {
-      throw new Error('Failed to update goal progress');
+      const errorData = await response.text();
+      throw new Error(`Notion API Error ${response.status}: ${errorData}`);
     }
+
+    const updatedPage = await response.json();
+    console.log('Goal progress updated successfully:', updatedPage.id);
+    
   } catch (error) {
-    console.error('Error updating goal progress:', error);
+    console.error('Error updating goal progress in Notion:', error);
   }
 }
