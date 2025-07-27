@@ -251,42 +251,29 @@ async function handleCheckinSubmission(slack, payload, channelId) {
 }
 
 async function updateGoalProgress(goalId, newProgress) {
-  console.log('Updating goal progress:', { goalId, newProgress });
+  console.log('Storing goal progress update:', { goalId, newProgress });
   
-  const notionToken = process.env.NOTION_TOKEN;
-  
-  if (!notionToken) {
-    console.error('NOTION_TOKEN not configured');
-    return;
-  }
-
   try {
-    // Update the goal's progress directly in Notion
-    const response = await fetch(`https://api.notion.com/v1/pages/${goalId}`, {
-      method: 'PATCH',
+    // Store the progress update in our own system (not Notion)
+    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/progress-updates`, {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${notionToken}`,
         'Content-Type': 'application/json',
-        'Notion-Version': '2022-06-28'
       },
       body: JSON.stringify({
-        properties: {
-          Progress: {
-            number: newProgress
-          }
-        }
+        goalId,
+        progress: newProgress,
+        updatedAt: new Date().toISOString()
       })
     });
 
     if (!response.ok) {
-      const errorData = await response.text();
-      throw new Error(`Notion API Error ${response.status}: ${errorData}`);
+      throw new Error('Failed to store progress update');
     }
 
-    const updatedPage = await response.json();
-    console.log('Goal progress updated successfully:', updatedPage.id);
+    console.log('Goal progress update stored successfully');
     
   } catch (error) {
-    console.error('Error updating goal progress in Notion:', error);
+    console.error('Error storing goal progress update:', error);
   }
 }

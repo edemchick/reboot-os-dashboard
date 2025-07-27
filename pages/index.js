@@ -85,14 +85,32 @@ export default function Dashboard() {
 
   const fetchGoals = async () => {
     try {
-      const response = await fetch('/api/goals');
-      const data = await response.json();
+      const [goalsResponse, updatesResponse] = await Promise.all([
+        fetch('/api/goals'),
+        fetch('/api/progress-updates')
+      ]);
       
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch goals');
+      const goalsData = await goalsResponse.json();
+      const updatesData = await updatesResponse.json();
+      
+      if (!goalsResponse.ok) {
+        throw new Error(goalsData.error || 'Failed to fetch goals');
       }
       
-      setGoals(data.goals);
+      // Merge Notion goals with Slack progress updates
+      const mergedGoals = goalsData.goals.map(goal => {
+        const update = updatesData.updates?.[goal.id];
+        if (update) {
+          return {
+            ...goal,
+            completion: update.progress,
+            lastUpdated: update.updatedAt.split('T')[0]
+          };
+        }
+        return goal;
+      });
+      
+      setGoals(mergedGoals);
       setError(null);
     } catch (err) {
       setError(err.message);
