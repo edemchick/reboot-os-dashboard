@@ -1,6 +1,14 @@
+// Import shared storage from interactive endpoint
 // Simple in-memory storage for progress updates
 // In production, you'd want to use a proper database
 let progressUpdates = {};
+
+// Function to get updates from the interactive endpoint
+function getSharedUpdates() {
+  // For now, return our local storage
+  // In a real app, you'd use a shared database
+  return progressUpdates;
+}
 
 export default async function handler(req, res) {
   if (req.method === 'POST') {
