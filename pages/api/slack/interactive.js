@@ -240,8 +240,38 @@ async function handleCheckinSubmission(slack, payload, channelId) {
   
   await slack.chat.postMessage(summaryMessage);
   
-  // TODO: Update goal progress in dashboard (skipping for now to avoid errors)
-  console.log(`Progress update: ${goalData.goalTitle} -> ${newProgress}%`);
+  // Store progress update for dashboard
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Simple file-based storage for progress updates
+    const updatesFile = '/tmp/progress-updates.json';
+    let updates = {};
+    
+    // Read existing updates
+    try {
+      if (fs.existsSync(updatesFile)) {
+        updates = JSON.parse(fs.readFileSync(updatesFile, 'utf8'));
+      }
+    } catch (e) {
+      console.log('No existing updates file');
+    }
+    
+    // Add new update
+    updates[goalData.goalId] = {
+      progress: newProgress,
+      updatedAt: new Date().toISOString(),
+      goalTitle: goalData.goalTitle
+    };
+    
+    // Save updates
+    fs.writeFileSync(updatesFile, JSON.stringify(updates, null, 2));
+    console.log(`Progress update saved: ${goalData.goalTitle} -> ${newProgress}%`);
+    
+  } catch (error) {
+    console.error('Error saving progress update:', error);
+  }
   
   // Send confirmation DM to user
   await slack.chat.postMessage({
