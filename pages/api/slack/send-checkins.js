@@ -1,0 +1,164 @@
+import { WebClient } from '@slack/web-api';
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const slackToken = process.env.SLACK_BOT_TOKEN;
+  
+  if (!slackToken) {
+    return res.status(500).json({ error: 'Slack bot token not configured' });
+  }
+
+  const { goals, quarterProgress } = req.body;
+
+  if (!goals || !Array.isArray(goals)) {
+    return res.status(400).json({ error: 'Goals array is required' });
+  }
+
+  const slack = new WebClient(slackToken);
+
+  try {
+    // Get unique owners and their goals
+    const ownerGoals = {};
+    goals.forEach(goal => {
+      const owner = goal.owner;
+      if (!ownerGoals[owner]) {
+        ownerGoals[owner] = [];
+      }
+      ownerGoals[owner].push(goal);
+    });
+
+    const sentCount = await Promise.all(
+      Object.entries(ownerGoals).map(async ([owner, userGoals]) => {
+        try {
+          // For now, we'll use a test user ID - you'll need to map owner names to Slack user IDs
+          // This is a placeholder - you'll need to implement user lookup
+          const userId = await lookupSlackUserId(owner, slack);
+          
+          if (!userId) {
+            console.warn(`No Slack user ID found for ${owner}`);
+            return 0;
+          }
+
+          // Send a DM to the user with all their goals
+          await sendGoalCheckinsToUser(slack, userId, userGoals, quarterProgress);
+          return 1;
+        } catch (error) {
+          console.error(`Failed to send check-in to ${owner}:`, error);
+          return 0;
+        }
+      })
+    );
+
+    const totalSent = sentCount.reduce((sum, count) => sum + count, 0);
+
+    res.status(200).json({ 
+      success: true, 
+      sentCount: totalSent,
+      totalOwners: Object.keys(ownerGoals).length
+    });
+
+  } catch (error) {
+    console.error('Error sending Slack check-ins:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// Helper function to lookup Slack user ID by name
+async function lookupSlackUserId(ownerName, slack) {
+  try {
+    // Get all users and log them for debugging
+    const result = await slack.users.list();
+    console.log('Available Slack users:');
+    result.members.forEach(member => {
+      if (!member.is_bot && !member.deleted) {
+        console.log(`- ${member.real_name || member.name} (${member.id}) - Display: ${member.profile?.display_name || 'none'}`);
+      }
+    });
+    
+    // Look for user by various name matches
+    const user = result.members.find(member => 
+      member.real_name === ownerName || 
+      member.display_name === ownerName ||
+      member.profile?.display_name === ownerName ||
+      member.name === ownerName.toLowerCase().replace(/\s+/g, '') ||
+      member.profile?.real_name === ownerName
+    );
+    
+    if (user) {
+      console.log(`Found user: ${ownerName} -> ${user.id} (${user.real_name})`);
+      return user.id;
+    } else {
+      console.log(`No user found for: ${ownerName}`);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error looking up user:', error);
+    return null;
+  }
+}
+
+// Helper function to send check-in messages to a user
+async function sendGoalCheckinsToUser(slack, userId, userGoals, quarterProgress) {
+  for (const goal of userGoals) {
+    const expectedProgress = Math.round(quarterProgress);
+    const currentProgress = goal.completion;
+    
+    // Create the interactive message with thread support
+    const message = {
+      channel: userId, // DM channel
+      text: `Weekly check-in for ${goal.quarter} goals`,
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `Hey! 👋 Weekly check-in for ${goal.quarter} goals`
+          }
+        },
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `🎯 *${goal.title}* (${currentProgress}% complete)\n\nWe're ${expectedProgress}% through ${goal.quarter} - time for your weekly update:`
+          }
+        },
+        {
+          type: "actions",
+          elements: [
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: "📝 Update Progress",
+                emoji: true
+              },
+              style: "primary",
+              action_id: "start_checkin",
+              value: JSON.stringify({
+                goalId: goal.id,
+                goalTitle: goal.title,
+                currentProgress: currentProgress,
+                expectedProgress: expectedProgress,
+                quarter: goal.quarter
+              })
+            }
+          ]
+        },
+        {
+          type: "context",
+          elements: [
+            {
+              type: "mrkdwn",
+              text: "💡 *Please respond in a thread* to keep multiple goal updates organized"
+            }
+          ]
+        }
+      ]
+    };
+
+    await slack.chat.postMessage(message);
+  }
+}

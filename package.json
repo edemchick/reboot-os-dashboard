@@ -9,11 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
-  "next": "14.0.0",
-  "react": "^18.0.0",
-  "react-dom": "^18.0.0",
-  "lucide-react": "^0.263.1",
-  "next-auth": "^4.24.0"
+    "@slack/bolt": "^4.4.0",
+    "@slack/web-api": "^7.9.3",
+    "lucide-react": "^0.263.1",
+    "next": "14.0.0",
+    "next-auth": "^4.24.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.0.1",

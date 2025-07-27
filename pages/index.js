@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
-import { Target, TrendingUp, AlertCircle, CheckCircle, Clock, LogOut } from 'lucide-react';
+import { Target, TrendingUp, AlertCircle, CheckCircle, Clock, LogOut, MessageSquare } from 'lucide-react';
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
@@ -14,6 +14,7 @@ export default function Dashboard() {
   const [longTermLoading, setLongTermLoading] = useState(false);
   const [error, setError] = useState(null);
   const [longTermError, setLongTermError] = useState(null);
+  const [slackLoading, setSlackLoading] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') return; // Still loading
@@ -50,6 +51,35 @@ export default function Dashboard() {
     setActiveTab(tab);
     if (tab === 'longterm') {
       fetchLongTermData();
+    }
+  };
+
+  const sendWeeklyCheckins = async () => {
+    setSlackLoading(true);
+    try {
+      const response = await fetch('/api/slack/send-checkins', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          goals: currentGoals,
+          quarterProgress: quarterProgress
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send check-ins');
+      }
+      
+      alert(`Successfully sent check-ins to ${data.sentCount} goal owners!`);
+    } catch (err) {
+      alert(`Error sending check-ins: ${err.message}`);
+      console.error('Error:', err);
+    } finally {
+      setSlackLoading(false);
     }
   };
 
@@ -285,10 +315,22 @@ export default function Dashboard() {
               )}
             </div>
             <div className="flex items-center gap-4">
-              <div className="text-right">
-                <div className="text-2xl font-bold text-blue-600">{overallProgress}%</div>
-                <div className="text-sm text-gray-500">{currentQuarter} Progress</div>
-              </div>
+              {activeTab === 'current' && (
+                <>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-blue-600">{overallProgress}%</div>
+                    <div className="text-sm text-gray-500">{currentQuarter} Progress</div>
+                  </div>
+                  <button
+                    onClick={sendWeeklyCheckins}
+                    disabled={slackLoading}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    {slackLoading ? 'Sending...' : 'Send Weekly Check-ins'}
+                  </button>
+                </>
+              )}
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <span>Welcome, {session.user.name}</span>
                 <button

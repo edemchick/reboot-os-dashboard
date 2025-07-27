@@ -15,10 +15,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Create a `.env.local` file with:
 - `NOTION_TOKEN`: Notion integration token (starts with `ntn_` or `secret_`)
 - `NOTION_DATABASE_ID`: Notion database ID (default: `238ee4a677df80c18e68d094de3fd6d6`)
+- `NOTION_LONGTERM_DATABASE_ID`: Long term goals database ID
 - `GOOGLE_CLIENT_ID`: Google OAuth client ID
 - `GOOGLE_CLIENT_SECRET`: Google OAuth client secret
 - `NEXTAUTH_URL`: Base URL for authentication (e.g., `http://localhost:3000` for dev)
 - `NEXTAUTH_SECRET`: Secret for NextAuth.js session encryption
+- `SLACK_BOT_TOKEN`: Slack bot OAuth token (starts with `xoxb-`)
+- `SLACK_CHANNEL_ID`: Slack channel name for posting summaries (e.g., `reboot_os`)
 
 ## Project Architecture
 
@@ -52,6 +55,19 @@ This is a Next.js dashboard that displays quarterly goals from a Notion database
 - Lucide React for icons (Target, TrendingUp, AlertCircle, etc.)
 - Responsive design with grid layouts
 - Progress bars with color coding based on completion percentage
+
+### Slack Integration
+- **Weekly Check-ins**: Send automated DMs to goal owners for progress updates
+- **Interactive Forms**: Modal forms for collecting "what went well", "challenges", and progress estimates
+- **Thread Responses**: Encourages users to respond in threads to keep multiple goals organized
+- **Team Updates**: Posts progress summaries to #reboot_os channel
+- **Progress Sync**: Automatically updates goal progress in Notion database from Slack responses
+
+#### Slack Setup Requirements:
+1. **Bot Token**: Add `SLACK_BOT_TOKEN` to environment variables
+2. **Channel ID**: Add `SLACK_CHANNEL_ID` for team updates
+3. **User ID Mapping**: Update the `lookupSlackUserId` function in `/api/slack/send-checkins.js` with actual Slack user IDs
+4. **Interactive Endpoint**: Configure Slack app's interactivity URL to point to `/api/slack/interactive`
 
 ## Notion Database Schema
 
