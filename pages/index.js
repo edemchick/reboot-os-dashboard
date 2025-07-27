@@ -8,8 +8,12 @@ export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [goals, setGoals] = useState([]);
+  const [longTermData, setLongTermData] = useState([]);
+  const [activeTab, setActiveTab] = useState('current');
   const [loading, setLoading] = useState(true);
+  const [longTermLoading, setLongTermLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [longTermError, setLongTermError] = useState(null);
 
   useEffect(() => {
     if (status === 'loading') return; // Still loading
@@ -19,6 +23,35 @@ export default function Dashboard() {
     }
     fetchGoals();
   }, [session, status, router]);
+
+  const fetchLongTermData = async () => {
+    if (longTermData.length > 0) return; // Already loaded
+    
+    setLongTermLoading(true);
+    try {
+      const response = await fetch('/api/longterm');
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch long term data');
+      }
+      
+      setLongTermData(data.goals);
+      setLongTermError(null);
+    } catch (err) {
+      setLongTermError(err.message);
+      console.error('Error:', err);
+    } finally {
+      setLongTermLoading(false);
+    }
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (tab === 'longterm') {
+      fetchLongTermData();
+    }
+  };
 
   const fetchGoals = async () => {
     try {
@@ -106,26 +139,28 @@ export default function Dashboard() {
   };
 
   const getFocusColor = (focus) => {
-    // Create consistent colors for different focus areas
+    // Create distinct, vibrant colors for different focus areas
     const focusColors = {
-      'MLB Teams': 'text-blue-600 bg-blue-50',
-      'NBA Teams': 'text-purple-600 bg-purple-50',
-      'NBA Growth': 'text-purple-600 bg-purple-50',
-      'Product': 'text-green-600 bg-green-50',
-      'Infrastructure': 'text-orange-600 bg-orange-50',
-      'Business Development': 'text-indigo-600 bg-indigo-50',
-      'Customer Success': 'text-teal-600 bg-teal-50',
-      'Security': 'text-red-600 bg-red-50',
-      'Engineering': 'text-cyan-600 bg-cyan-50',
-      'General': 'text-gray-600 bg-gray-50'
+      'All': 'text-violet-700 bg-violet-100',
+      'MLB Teams': 'text-blue-700 bg-blue-100',
+      'NBA Teams': 'text-purple-700 bg-purple-100',
+      'NBA Growth': 'text-fuchsia-700 bg-fuchsia-100',
+      'MLB League Office': 'text-emerald-700 bg-emerald-100',
+      'Product': 'text-green-700 bg-green-100',
+      'Infrastructure': 'text-orange-700 bg-orange-100',
+      'Business Development': 'text-indigo-700 bg-indigo-100',
+      'Customer Success': 'text-teal-700 bg-teal-100',
+      'Security': 'text-red-700 bg-red-100',
+      'Engineering': 'text-cyan-700 bg-cyan-100',
+      'General': 'text-amber-700 bg-amber-100'
     };
 
-    // Handle multiple focuses (comma separated)
+    // Handle multiple focuses (comma separated) with a distinct color
     if (focus.includes(',')) {
-      return 'text-gray-600 bg-gray-50'; // Default for multiple focuses
+      return 'text-pink-700 bg-pink-100';
     }
 
-    return focusColors[focus] || 'text-gray-600 bg-gray-50';
+    return focusColors[focus] || 'text-slate-700 bg-slate-100';
   };
 
   const getCompletionColor = (completion) => {
@@ -133,6 +168,56 @@ export default function Dashboard() {
     if (completion >= 60) return 'bg-blue-500';
     if (completion >= 40) return 'bg-yellow-500';
     return 'bg-red-500';
+  };
+
+  const organizeLongTermData = () => {
+    const fiveYear = longTermData.filter(item => item.type === '5 Year Vision');
+    const threeYear = longTermData.filter(item => item.type === '3 Year Picture');
+    const annual = longTermData.filter(item => item.type === 'Annual Plan');
+    
+    return { fiveYear, threeYear, annual };
+  };
+
+  const renderLongTermSection = (title, data, iconColor = 'text-blue-600') => {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Target className={`h-5 w-5 ${iconColor}`} />
+          {title}
+        </h3>
+        {data.length === 0 ? (
+          <p className="text-gray-500 text-sm">No items found for this section.</p>
+        ) : (
+          <div className="space-y-4">
+            {data.map((item, index) => (
+              <div key={index} className="border-l-4 border-blue-200 pl-4">
+                <h4 className="font-medium text-gray-900 mb-2">{item.name}</h4>
+                <div className="space-y-1 mb-2">
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Goal:</span> {item.goal}
+                  </p>
+                  {item.progress && (
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Progress:</span> {item.progress}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 max-w-xs">
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full ${getCompletionColor(item.progressNumber || 0)}`}
+                        style={{ width: `${item.progressNumber || 0}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   if (status === 'loading') {
@@ -171,10 +256,33 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Reboot OS Control Tower</h1>
-              <p className="text-gray-600">{currentQuarter} 2025 Goals & Progress Dashboard</p>
-              <p className="text-sm text-gray-500">
-                {Math.round(quarterProgress)}% through {currentQuarter} • Expected progress: {Math.round(quarterProgress)}%
-              </p>
+              <div className="flex items-center gap-6 mt-3">
+                <button
+                  onClick={() => handleTabChange('current')}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'current'
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  Current Goals
+                </button>
+                <button
+                  onClick={() => handleTabChange('longterm')}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'longterm'
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  Long Term
+                </button>
+              </div>
+              {activeTab === 'current' && (
+                <p className="text-sm text-gray-500 mt-2">
+                  {Math.round(quarterProgress)}% through {currentQuarter} • Expected progress: {Math.round(quarterProgress)}%
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-4">
               <div className="text-right">
@@ -197,22 +305,23 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="text-gray-600 mt-4">Loading goals...</p>
-          </div>
-        ) : error ? (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center">
-              <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
-              <p className="text-red-800">{error}</p>
+        {activeTab === 'current' ? (
+          loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="text-gray-600 mt-4">Loading goals...</p>
             </div>
-            <p className="text-red-600 text-sm mt-2">
-              Check your environment variables and database sharing settings.
-            </p>
-          </div>
-        ) : (
+          ) : error ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <div className="flex items-center">
+                <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+                <p className="text-red-800">{error}</p>
+              </div>
+              <p className="text-red-600 text-sm mt-2">
+                Check your environment variables and database sharing settings.
+              </p>
+            </div>
+          ) : (
           <>
             {/* Quick Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -280,7 +389,10 @@ export default function Dashboard() {
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-lg font-medium text-gray-900">{goal.title}</h3>
+                            <h3 
+                              className="text-lg font-medium text-gray-900" 
+                              dangerouslySetInnerHTML={{ __html: goal.titleWithLinks || goal.title }}
+                            ></h3>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(goal.status)}`}>
                               {goal.status}
                             </span>
@@ -322,14 +434,20 @@ export default function Dashboard() {
                         <div>
                           {goal.keyResults && (
                             <div className="mb-3">
-                              <h4 className="text-sm font-medium text-gray-700 mb-2">Key Results:</h4>
-                              <div className="text-sm text-gray-600 whitespace-pre-line">{goal.keyResults}</div>
+                              <h4 className="text-sm font-medium text-gray-700 mb-2">Open KRs:</h4>
+                              <div 
+                                className="text-sm text-gray-600 whitespace-pre-line"
+                                dangerouslySetInnerHTML={{ __html: goal.keyResults }}
+                              ></div>
                             </div>
                           )}
                           {goal.completedKRs && (
                             <div>
                               <h4 className="text-sm font-medium text-green-700 mb-2">Completed KRs:</h4>
-                              <div className="text-sm text-green-600 whitespace-pre-line">{goal.completedKRs}</div>
+                              <div 
+                                className="text-sm text-green-600 whitespace-pre-line"
+                                dangerouslySetInnerHTML={{ __html: goal.completedKRs }}
+                              ></div>
                             </div>
                           )}
                         </div>
@@ -340,6 +458,39 @@ export default function Dashboard() {
               )}
             </div>
           </>
+        )
+        ) : (
+          longTermLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="text-gray-600 mt-4">Loading long term goals...</p>
+            </div>
+          ) : longTermError ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <div className="flex items-center">
+                <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+                <p className="text-red-800">{longTermError}</p>
+              </div>
+              <p className="text-red-600 text-sm mt-2">
+                Check your environment variables and long term database sharing settings.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              <h2 className="text-lg font-semibold text-gray-900">Long Term Strategic Goals</h2>
+              
+              {(() => {
+                const { fiveYear, threeYear, annual } = organizeLongTermData();
+                return (
+                  <div className="space-y-8">
+                    {renderLongTermSection('5 Year Vision', fiveYear, 'text-purple-600')}
+                    {renderLongTermSection('3 Year Picture', threeYear, 'text-blue-600')}
+                    {renderLongTermSection('Annual Plan', annual, 'text-green-600')}
+                  </div>
+                );
+              })()}
+            </div>
+          )
         )}
       </div>
     </div>
