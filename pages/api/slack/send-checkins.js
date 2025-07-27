@@ -1,6 +1,11 @@
 import { WebClient } from '@slack/web-api';
 
 export default async function handler(req, res) {
+  console.log('=== Slack Send Check-ins API Called ===');
+  console.log('Method:', req.method);
+  console.log('Has SLACK_BOT_TOKEN:', !!process.env.SLACK_BOT_TOKEN);
+  console.log('Request body keys:', Object.keys(req.body || {}));
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -8,14 +13,18 @@ export default async function handler(req, res) {
   const slackToken = process.env.SLACK_BOT_TOKEN;
   
   if (!slackToken) {
+    console.error('SLACK_BOT_TOKEN not found in environment variables');
     return res.status(500).json({ error: 'Slack bot token not configured' });
   }
 
   const { goals, quarterProgress } = req.body;
 
   if (!goals || !Array.isArray(goals)) {
+    console.error('Invalid goals data:', { goals, quarterProgress });
     return res.status(400).json({ error: 'Goals array is required' });
   }
+
+  console.log('Processing goals for', goals.length, 'items');
 
   const slack = new WebClient(slackToken);
 
@@ -61,8 +70,15 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Error sending Slack check-ins:', error);
-    res.status(500).json({ error: error.message });
+    console.error('=== Slack API Error ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Error data:', error.data);
+    res.status(500).json({ 
+      error: error.message,
+      details: error.data || 'No additional error details'
+    });
   }
 }
 
