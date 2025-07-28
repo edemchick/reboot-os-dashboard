@@ -269,7 +269,7 @@ async function handleCheckinSubmission(slack, payload, channelId) {
       body: JSON.stringify({
         properties: {
           Progress: {
-            number: newProgress
+            number: newProgress / 100
           }
         }
       })

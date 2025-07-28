@@ -162,15 +162,6 @@ async function sendGoalCheckinsToUser(slack, userId, userGoals, quarterProgress)
               })
             }
           ]
-        },
-        {
-          type: "context",
-          elements: [
-            {
-              type: "mrkdwn",
-              text: "💡 *Please respond in a thread* to keep multiple goal updates organized"
-            }
-          ]
         }
       ]
     };
