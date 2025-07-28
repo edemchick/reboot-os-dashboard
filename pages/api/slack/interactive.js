@@ -71,17 +71,27 @@ export default async function handler(req, res) {
       // Handle modal submission
       console.log('Handling view submission...');
       
-      // Respond immediately to Slack, then process async
-      res.status(200).json({ success: true });
-      
-      // Process the submission in the background
+      // Process the submission first
       try {
         await handleCheckinSubmission(slack, payload, channelId);
         console.log('Submission handled successfully');
+        
+        // Respond with success to Slack
+        res.status(200).json({
+          response_action: "clear"
+        });
+        return;
+        
       } catch (error) {
         console.error('Error handling submission:', error);
+        res.status(200).json({
+          response_action: "errors",
+          errors: {
+            "progress_estimate": "Something went wrong. Please try again."
+          }
+        });
+        return;
       }
-      return; // Exit early since we already sent response
     }
 
     console.log('Slack interaction handled successfully');
@@ -242,33 +252,8 @@ async function handleCheckinSubmission(slack, payload, channelId) {
   
   // Store progress update for dashboard
   try {
-    const fs = require('fs');
-    const path = require('path');
-    
-    // Simple file-based storage for progress updates
-    const updatesFile = '/tmp/progress-updates.json';
-    let updates = {};
-    
-    // Read existing updates
-    try {
-      if (fs.existsSync(updatesFile)) {
-        updates = JSON.parse(fs.readFileSync(updatesFile, 'utf8'));
-      }
-    } catch (e) {
-      console.log('No existing updates file');
-    }
-    
-    // Add new update
-    updates[goalData.goalId] = {
-      progress: newProgress,
-      updatedAt: new Date().toISOString(),
-      goalTitle: goalData.goalTitle
-    };
-    
-    // Save updates
-    fs.writeFileSync(updatesFile, JSON.stringify(updates, null, 2));
-    console.log(`Progress update saved: ${goalData.goalTitle} -> ${newProgress}%`);
-    
+    const { setProgressUpdate } = require('../../../lib/progress-store');
+    setProgressUpdate(goalData.goalId, newProgress, goalData.goalTitle);
   } catch (error) {
     console.error('Error saving progress update:', error);
   }

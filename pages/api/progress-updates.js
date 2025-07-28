@@ -1,23 +1,10 @@
+import { getAllUpdates } from '../../lib/progress-store';
+
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
-      const fs = require('fs');
-      const updatesFile = '/tmp/progress-updates.json';
-      
-      let updates = {};
-      
-      // Read updates from file
-      try {
-        if (fs.existsSync(updatesFile)) {
-          updates = JSON.parse(fs.readFileSync(updatesFile, 'utf8'));
-          console.log('Loaded progress updates:', Object.keys(updates).length, 'updates');
-        } else {
-          console.log('No progress updates file found');
-        }
-      } catch (error) {
-        console.error('Error reading progress updates:', error);
-      }
-      
+      const updates = getAllUpdates();
+      console.log('Loaded progress updates:', Object.keys(updates).length, 'updates');
       res.status(200).json({ updates });
       
     } catch (error) {
