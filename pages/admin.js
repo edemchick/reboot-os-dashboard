@@ -8,7 +8,6 @@ export default function AdminPage() {
   const router = useRouter();
   const [scheduleData, setScheduleData] = useState({
     day: 'Monday',
-    time: '09:00',
     enabled: false
   });
   const [loading, setLoading] = useState(true);
@@ -172,7 +171,7 @@ export default function AdminPage() {
               <h2 className="text-lg font-semibold text-gray-900">Weekly Check-in Schedule</h2>
             </div>
             <p className="mt-1 text-sm text-gray-600">
-              Configure when automated Slack check-ins are sent to goal owners (Eastern Time)
+              Configure automated Slack check-ins sent at 10:00 AM Eastern Time
             </p>
           </div>
           
@@ -188,37 +187,23 @@ export default function AdminPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Day of Week
-                </label>
-                <select
-                  value={scheduleData.day}
-                  onChange={(e) => handleInputChange('day', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="Monday">Monday</option>
-                  <option value="Tuesday">Tuesday</option>
-                  <option value="Wednesday">Wednesday</option>
-                  <option value="Thursday">Thursday</option>
-                  <option value="Friday">Friday</option>
-                  <option value="Saturday">Saturday</option>
-                  <option value="Sunday">Sunday</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Time (Eastern Time)
-                </label>
-                <input
-                  type="time"
-                  value={scheduleData.time}
-                  onChange={(e) => handleInputChange('time', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+            <div className="max-w-md">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Day of Week
+              </label>
+              <select
+                value={scheduleData.day}
+                onChange={(e) => handleInputChange('day', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="Monday">Monday at 10:00 AM Eastern</option>
+                <option value="Tuesday">Tuesday at 10:00 AM Eastern</option>
+                <option value="Wednesday">Wednesday at 10:00 AM Eastern</option>
+                <option value="Thursday">Thursday at 10:00 AM Eastern</option>
+                <option value="Friday">Friday at 10:00 AM Eastern</option>
+                <option value="Saturday">Saturday at 10:00 AM Eastern</option>
+                <option value="Sunday">Sunday at 10:00 AM Eastern</option>
+              </select>
             </div>
 
             <div className="flex items-center">
@@ -262,9 +247,9 @@ export default function AdminPage() {
                 <div>
                   <h4 className="text-sm font-medium text-yellow-800">Important Notes</h4>
                   <ul className="mt-1 text-sm text-yellow-700 space-y-1">
-                    <li>• All times are in Eastern Time Zone</li>
-                    <li>• Check-ins will be sent to all goal owners automatically</li>
-                    <li>• The manual "Send Weekly Check-ins" button will still work regardless of this setting</li>
+                    <li>• Check-ins are sent automatically at 10:00 AM Eastern Time</li>
+                    <li>• Check-ins will be sent to all goal owners on the selected day</li>
+                    <li>• The manual "Send Manual Check-In" button will still work regardless of this setting</li>
                     <li>• Changes take effect immediately after saving</li>
                   </ul>
                 </div>

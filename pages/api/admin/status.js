@@ -41,7 +41,7 @@ export default async function handler(req, res) {
         currentDate,
         timeZone: 'America/New_York (Eastern)',
         isScheduledDay: currentDay === schedule.day,
-        nextScheduledDate: getNextScheduledDate(schedule.day, schedule.time)
+        nextScheduledDate: getNextScheduledDate(schedule.day, '10:00')
       },
       systemInfo: {
         serverTime: now.toISOString(),

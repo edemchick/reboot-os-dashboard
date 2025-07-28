@@ -27,21 +27,17 @@ export default async function handler(req, res) {
     
     const currentDay = easternTime.toLocaleDateString('en-US', { weekday: 'long' });
     const currentHour = easternTime.getHours();
-    const currentMinute = easternTime.getMinutes();
-    const currentTime = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+    const currentTime = `${currentHour.toString().padStart(2, '0')}:${easternTime.getMinutes().toString().padStart(2, '0')}`;
     
-    // Parse scheduled time
-    const [scheduledHour, scheduledMinute] = schedule.time.split(':').map(Number);
-    
-    // Check if it's the right day and within the right hour
+    // Check if it's the right day and it's 10am Eastern (15:00 UTC when cron runs)
     const isRightDay = currentDay === schedule.day;
-    const isRightHour = currentHour === scheduledHour;
+    const isScheduledTime = currentHour === 10; // 10 AM Eastern
     
-    if (isRightDay && isRightHour) {
+    if (isRightDay && isScheduledTime) {
       console.log('Triggering scheduled check-ins:', {
         day: currentDay,
         time: currentTime,
-        scheduled: `${schedule.day} at ${schedule.time}`
+        scheduled: `${schedule.day} at 10:00 AM Eastern`
       });
 
       // Make internal request to send check-ins
@@ -60,7 +56,7 @@ export default async function handler(req, res) {
           message: 'Weekly check-ins sent successfully',
           sent: true,
           scheduledDay: schedule.day,
-          scheduledTime: schedule.time,
+          scheduledTime: '10:00 AM Eastern',
           currentTime: currentTime,
           slackResponse: result
         });
@@ -70,14 +66,14 @@ export default async function handler(req, res) {
       }
     } else {
       return res.status(200).json({ 
-        message: `Not the right time. Current: ${currentDay} ${currentTime}, Scheduled: ${schedule.day} ${schedule.time}`,
+        message: `Not the right time. Current: ${currentDay} ${currentTime}, Scheduled: ${schedule.day} 10:00 AM Eastern`,
         sent: false,
         scheduledDay: schedule.day,
-        scheduledTime: schedule.time,
+        scheduledTime: '10:00 AM Eastern',
         currentDay: currentDay,
         currentTime: currentTime,
         isRightDay,
-        isRightHour
+        isScheduledTime
       });
     }
 

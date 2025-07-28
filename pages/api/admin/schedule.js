@@ -7,10 +7,9 @@ const isAdmin = (email) => {
   return adminEmails.includes(email);
 };
 
-// Default schedule settings
+// Default schedule settings - fixed time at 10:00 AM Eastern
 const defaultSchedule = {
   day: 'Monday',
-  time: '09:00',
   enabled: false
 };
 
@@ -28,7 +27,6 @@ const readScheduleSettings = () => {
     // Try to read from environment variables as fallback
     const envSchedule = {
       day: process.env.SCHEDULE_DAY || defaultSchedule.day,
-      time: process.env.SCHEDULE_TIME || defaultSchedule.time,
       enabled: process.env.SCHEDULE_ENABLED === 'true' || defaultSchedule.enabled
     };
     scheduleSettings = envSchedule;
@@ -73,7 +71,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       // Update schedule settings
-      const { day, time, enabled } = req.body;
+      const { day, enabled } = req.body;
 
       // Validate input
       const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -81,17 +79,11 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Invalid day of week' });
       }
 
-      // Validate time format (HH:MM)
-      const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-      if (!timeRegex.test(time)) {
-        return res.status(400).json({ error: 'Invalid time format. Use HH:MM format.' });
-      }
-
       if (typeof enabled !== 'boolean') {
         return res.status(400).json({ error: 'Enabled must be a boolean value' });
       }
 
-      const newSettings = { day, time, enabled };
+      const newSettings = { day, enabled };
       
       if (writeScheduleSettings(newSettings)) {
         return res.status(200).json({ 
