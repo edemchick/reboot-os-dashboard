@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/admin/trigger-checkins",
+      "schedule": "0 9,13,17 * * *"
+    }
+  ]
+}

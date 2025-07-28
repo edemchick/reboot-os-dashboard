@@ -1,9 +1,13 @@
 import { getCurrentSchedule } from './schedule';
 
-// This endpoint will be called by a cron job or external scheduler
-// For production, you would set up a Vercel Cron job to call this endpoint
+// This endpoint is called by Vercel Cron jobs
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
+  // Security: Only allow Vercel Cron jobs or specific user agents
+  const userAgent = req.headers['user-agent'];
+  const isVercelCron = userAgent && userAgent.includes('vercel-cron');
+  const isCronJob = req.headers['x-vercel-cron'] || isVercelCron;
+  
+  if (!isCronJob && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -17,42 +21,63 @@ export default async function handler(req, res) {
       });
     }
 
-    // Check if it's the right time to send check-ins
+    // Get current time in Eastern timezone
     const now = new Date();
     const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
     
     const currentDay = easternTime.toLocaleDateString('en-US', { weekday: 'long' });
-    const currentTime = easternTime.toTimeString().slice(0, 5); // HH:MM format
+    const currentHour = easternTime.getHours();
+    const currentMinute = easternTime.getMinutes();
+    const currentTime = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
     
-    // For now, we'll just check if it's the right day
-    // In production, you'd want more sophisticated time checking
-    if (currentDay === schedule.day) {
-      // Trigger the check-ins by calling the existing endpoint
-      const response = await fetch(`${process.env.NEXTAUTH_URL}/api/slack/send-checkins`, {
+    // Parse scheduled time
+    const [scheduledHour, scheduledMinute] = schedule.time.split(':').map(Number);
+    
+    // Check if it's the right day and within the right hour
+    const isRightDay = currentDay === schedule.day;
+    const isRightHour = currentHour === scheduledHour;
+    
+    if (isRightDay && isRightHour) {
+      console.log('Triggering scheduled check-ins:', {
+        day: currentDay,
+        time: currentTime,
+        scheduled: `${schedule.day} at ${schedule.time}`
+      });
+
+      // Make internal request to send check-ins
+      const baseUrl = process.env.NEXTAUTH_URL || `https://${req.headers.host}`;
+      const response = await fetch(`${baseUrl}/api/slack/send-checkins`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'User-Agent': 'vercel-cron-internal',
         },
-        // Include some authentication or API key for security
       });
 
       if (response.ok) {
+        const result = await response.json();
         return res.status(200).json({ 
           message: 'Weekly check-ins sent successfully',
           sent: true,
           scheduledDay: schedule.day,
           scheduledTime: schedule.time,
-          currentTime: currentTime
+          currentTime: currentTime,
+          slackResponse: result
         });
       } else {
-        throw new Error('Failed to send check-ins');
+        const errorText = await response.text();
+        throw new Error(`Slack API failed: ${response.status} - ${errorText}`);
       }
     } else {
       return res.status(200).json({ 
-        message: `Not scheduled day. Current: ${currentDay}, Scheduled: ${schedule.day}`,
+        message: `Not the right time. Current: ${currentDay} ${currentTime}, Scheduled: ${schedule.day} ${schedule.time}`,
         sent: false,
         scheduledDay: schedule.day,
-        currentDay: currentDay
+        scheduledTime: schedule.time,
+        currentDay: currentDay,
+        currentTime: currentTime,
+        isRightDay,
+        isRightHour
       });
     }
 
