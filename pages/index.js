@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
-import { Target, TrendingUp, AlertCircle, CheckCircle, Clock, LogOut, MessageSquare } from 'lucide-react';
+import { Target, TrendingUp, AlertCircle, CheckCircle, Clock, LogOut, MessageSquare, Settings, ChevronDown } from 'lucide-react';
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
   const [longTermError, setLongTermError] = useState(null);
   const [slackLoading, setSlackLoading] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') return; // Still loading
@@ -24,6 +25,17 @@ export default function Dashboard() {
     }
     fetchGoals();
   }, [session, status, router]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showUserDropdown && !event.target.closest('.user-dropdown')) {
+        setShowUserDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showUserDropdown]);
 
   const fetchLongTermData = async () => {
     if (longTermData.length > 0) return; // Already loaded
@@ -145,11 +157,15 @@ export default function Dashboard() {
 
   // Function to determine if a goal is at risk based on time-normalized progress
   const isGoalAtRisk = (completion, quarterProgress) => {
-    // Goal is at risk if it's more than 15 percentage points behind where it should be
-    // based on time elapsed in the quarter
-    const expectedProgress = quarterProgress;
-    const threshold = 15; // percentage points
-    return (expectedProgress - completion) > threshold;
+    // Goal is at risk if completion percentage is less than quarter progress percentage
+    return completion < quarterProgress;
+  };
+
+  // Function to check if current user is admin
+  const isAdmin = () => {
+    if (!session?.user?.email) return false;
+    const adminEmails = ['edemchick@rebootmotion.com', 'jbuffi@rebootmotion.com'];
+    return adminEmails.includes(session.user.email);
   };
 
   const getStatusColor = (status) => {
@@ -331,15 +347,43 @@ export default function Dashboard() {
                   </button>
                 </>
               )}
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <span>Welcome, {session.user.name}</span>
+              <div className="relative user-dropdown">
                 <button
-                  onClick={() => signOut()}
-                  className="flex items-center gap-1 px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                  onClick={() => setShowUserDropdown(!showUserDropdown)}
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
                 >
-                  <LogOut className="h-4 w-4" />
-                  Sign Out
+                  <span>Welcome, {session.user.name}</span>
+                  <ChevronDown className="h-4 w-4" />
                 </button>
+                
+                {showUserDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-50">
+                    <div className="py-1">
+                      {isAdmin() && (
+                        <button
+                          onClick={() => {
+                            setShowUserDropdown(false);
+                            router.push('/admin');
+                          }}
+                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          <Settings className="h-4 w-4" />
+                          Admin Settings
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setShowUserDropdown(false);
+                          signOut();
+                        }}
+                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
