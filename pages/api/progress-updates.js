@@ -3,8 +3,11 @@ import { getAllUpdates } from '../../lib/progress-store';
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
+      console.log('=== Progress Updates API Called ===');
       const updates = getAllUpdates();
-      console.log('Loaded progress updates:', Object.keys(updates).length, 'updates');
+      console.log('Retrieved updates:', JSON.stringify(updates, null, 2));
+      console.log('Update count:', Object.keys(updates).length);
+      
       res.status(200).json({ updates });
       
     } catch (error) {

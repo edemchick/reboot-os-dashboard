@@ -252,8 +252,16 @@ async function handleCheckinSubmission(slack, payload, channelId) {
   
   // Store progress update for dashboard
   try {
+    console.log('=== Storing Progress Update ===');
+    console.log('Goal ID:', goalData.goalId);
+    console.log('Goal Title:', goalData.goalTitle);
+    console.log('New Progress:', newProgress);
+    
     const { setProgressUpdate } = require('../../../lib/progress-store');
-    setProgressUpdate(goalData.goalId, newProgress, goalData.goalTitle);
+    const result = setProgressUpdate(goalData.goalId, newProgress, goalData.goalTitle);
+    
+    console.log('Stored result:', result);
+    console.log('=== Storage Complete ===');
   } catch (error) {
     console.error('Error saving progress update:', error);
   }
