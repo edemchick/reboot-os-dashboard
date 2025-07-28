@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
-import { ArrowLeft, Clock, Save, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Clock, Save, AlertCircle, MessageSquare } from 'lucide-react';
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
@@ -15,6 +15,7 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [statusData, setStatusData] = useState(null);
+  const [slackLoading, setSlackLoading] = useState(false);
 
   // Check if current user is admin
   const isAdmin = () => {
@@ -99,6 +100,39 @@ export default function AdminPage() {
       ...prev,
       [field]: value
     }));
+  };
+
+  const sendManualCheckins = async () => {
+    setSlackLoading(true);
+    setMessage({ type: '', text: '' });
+    
+    try {
+      const response = await fetch('/api/slack/send-checkins', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send check-ins');
+      }
+      
+      setMessage({ 
+        type: 'success', 
+        text: `Successfully sent check-ins to ${data.sentCount} goal owners!` 
+      });
+    } catch (err) {
+      setMessage({ 
+        type: 'error', 
+        text: `Error sending check-ins: ${err.message}` 
+      });
+      console.error('Error:', err);
+    } finally {
+      setSlackLoading(false);
+    }
   };
 
   if (status === 'loading' || loading) {
@@ -201,14 +235,25 @@ export default function AdminPage() {
             </div>
 
             <div className="pt-4 border-t">
-              <button
-                onClick={saveScheduleSettings}
-                disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <Save className="h-4 w-4" />
-                {saving ? 'Saving...' : 'Save Settings'}
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={saveScheduleSettings}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Save className="h-4 w-4" />
+                  {saving ? 'Saving...' : 'Save Settings'}
+                </button>
+                
+                <button
+                  onClick={sendManualCheckins}
+                  disabled={slackLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  {slackLoading ? 'Sending...' : 'Send Manual Check-In'}
+                </button>
+              </div>
             </div>
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">

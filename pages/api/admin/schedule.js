@@ -1,18 +1,5 @@
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]';
-import fs from 'fs';
-import path from 'path';
-
-// Simple file-based storage for schedule settings
-const SCHEDULE_FILE = path.join(process.cwd(), 'data', 'schedule.json');
-
-// Ensure data directory exists
-const ensureDataDir = () => {
-  const dataDir = path.dirname(SCHEDULE_FILE);
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-};
 
 // Check if current user is admin
 const isAdmin = (email) => {
@@ -27,28 +14,40 @@ const defaultSchedule = {
   enabled: false
 };
 
-// Read schedule settings from file
+// For Vercel, we'll use a simple in-memory storage with environment variable fallback
+// In production, you might want to use a database like Vercel KV or similar
+let scheduleSettings = null;
+
+// Read schedule settings (from memory or environment variables)
 const readScheduleSettings = () => {
-  ensureDataDir();
-  try {
-    if (fs.existsSync(SCHEDULE_FILE)) {
-      const data = fs.readFileSync(SCHEDULE_FILE, 'utf8');
-      return JSON.parse(data);
-    }
-  } catch (error) {
-    console.error('Error reading schedule file:', error);
+  if (scheduleSettings) {
+    return scheduleSettings;
   }
-  return defaultSchedule;
+  
+  try {
+    // Try to read from environment variables as fallback
+    const envSchedule = {
+      day: process.env.SCHEDULE_DAY || defaultSchedule.day,
+      time: process.env.SCHEDULE_TIME || defaultSchedule.time,
+      enabled: process.env.SCHEDULE_ENABLED === 'true' || defaultSchedule.enabled
+    };
+    scheduleSettings = envSchedule;
+    return envSchedule;
+  } catch (error) {
+    console.error('Error reading schedule settings:', error);
+    return defaultSchedule;
+  }
 };
 
-// Write schedule settings to file
+// Write schedule settings (to memory)
+// Note: This will reset on server restart. For persistence, use a database.
 const writeScheduleSettings = (settings) => {
-  ensureDataDir();
   try {
-    fs.writeFileSync(SCHEDULE_FILE, JSON.stringify(settings, null, 2));
+    scheduleSettings = settings;
+    console.log('Schedule settings updated:', settings);
     return true;
   } catch (error) {
-    console.error('Error writing schedule file:', error);
+    console.error('Error writing schedule settings:', error);
     return false;
   }
 };
