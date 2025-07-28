@@ -97,7 +97,7 @@ export default async function handler(req, res) {
         quarter: page.properties.Quarter?.select?.name || 'Q3',
         status: page.properties.Status?.status?.name || page.properties.Status?.select?.name || 'Not started',
         owner: extractOwnerName(page.properties.Owner),
-        completion: parseInt(page.properties.Progress?.number || 0),
+        completion: Math.round((page.properties.Progress?.number || 0) * 100),
         focus: page.properties.Focus?.multi_select?.map(option => option.name).join(', ') || 'General',
         keyResults: extractRichTextWithLinks(page.properties['Open KRs']?.rich_text),
         completedKRs: extractRichTextWithLinks(page.properties['Completed KRs']?.rich_text),

@@ -76,20 +76,13 @@ export default async function handler(req, res) {
         await handleCheckinSubmission(slack, payload, channelId);
         console.log('Submission handled successfully');
         
-        // Respond with success to Slack
-        res.status(200).json({
-          response_action: "clear"
-        });
+        // Respond with success to Slack (simple response)
+        res.status(200).json({});
         return;
         
       } catch (error) {
         console.error('Error handling submission:', error);
-        res.status(200).json({
-          response_action: "errors",
-          errors: {
-            "progress_estimate": "Something went wrong. Please try again."
-          }
-        });
+        res.status(200).json({});
         return;
       }
     }
