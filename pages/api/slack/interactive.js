@@ -250,20 +250,40 @@ async function handleCheckinSubmission(slack, payload, channelId) {
   
   await slack.chat.postMessage(summaryMessage);
   
-  // Store progress update for dashboard
+  // Update progress in Notion
   try {
-    console.log('=== Storing Progress Update ===');
+    console.log('=== Updating Notion Progress ===');
     console.log('Goal ID:', goalData.goalId);
     console.log('Goal Title:', goalData.goalTitle);
     console.log('New Progress:', newProgress);
     
-    const { setProgressUpdate } = require('../../../lib/progress-store');
-    const result = setProgressUpdate(goalData.goalId, newProgress, goalData.goalTitle);
+    const notionToken = process.env.NOTION_TOKEN;
     
-    console.log('Stored result:', result);
-    console.log('=== Storage Complete ===');
+    const response = await fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${notionToken}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28'
+      },
+      body: JSON.stringify({
+        properties: {
+          Progress: {
+            number: newProgress
+          }
+        }
+      })
+    });
+
+    if (response.ok) {
+      console.log('✅ Notion progress updated successfully');
+    } else {
+      const errorData = await response.text();
+      console.error('❌ Notion update failed:', response.status, errorData);
+    }
+    
   } catch (error) {
-    console.error('Error saving progress update:', error);
+    console.error('Error updating Notion progress:', error);
   }
   
   // Send confirmation DM to user
