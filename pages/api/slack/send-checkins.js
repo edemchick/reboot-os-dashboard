@@ -17,10 +17,34 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Slack bot token not configured' });
   }
 
-  const { goals, quarterProgress } = req.body;
+  // Fetch goals data if not provided in request body
+  let { goals, quarterProgress } = req.body;
+  
+  if (!goals || !Array.isArray(goals) || !quarterProgress) {
+    console.log('Goals data not provided in request body, fetching from API...');
+    
+    try {
+      // Make internal request to get goals data
+      const baseUrl = process.env.NEXTAUTH_URL || `https://${req.headers.host}`;
+      const goalsResponse = await fetch(`${baseUrl}/api/goals`);
+      
+      if (!goalsResponse.ok) {
+        throw new Error(`Failed to fetch goals: ${goalsResponse.status}`);
+      }
+      
+      const goalsData = await goalsResponse.json();
+      goals = goalsData.goals;
+      quarterProgress = goalsData.quarterProgress;
+      
+      console.log('Fetched goals data:', { goalCount: goals.length, quarterProgress });
+    } catch (error) {
+      console.error('Error fetching goals data:', error);
+      return res.status(500).json({ error: 'Failed to fetch goals data' });
+    }
+  }
 
   if (!goals || !Array.isArray(goals)) {
-    console.error('Invalid goals data:', { goals, quarterProgress });
+    console.error('Invalid goals data after fetch:', { goals, quarterProgress });
     return res.status(400).json({ error: 'Goals array is required' });
   }
 

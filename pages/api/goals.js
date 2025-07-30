@@ -128,7 +128,55 @@ export default async function handler(req, res) {
       return a.focus.localeCompare(b.focus);
     });
 
-    res.status(200).json({ goals: transformedGoals });
+    // Calculate quarter progress
+    const getQuarterInfo = () => {
+      const now = new Date();
+      
+      let quarter, startDate, endDate;
+      
+      // Custom quarter system: Jan 11 - Apr 10 (Q1), Apr 11 - Jul 10 (Q2), Jul 11 - Oct 10 (Q3), Oct 11 - Jan 10 (Q4)
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1; // January is 1
+      const day = now.getDate();
+      
+      if ((month === 1 && day >= 11) || month === 2 || month === 3 || (month === 4 && day <= 10)) {
+        quarter = 'Q1';
+        startDate = new Date(year, 0, 11); // Jan 11
+        endDate = new Date(year, 3, 10); // Apr 10
+      } else if ((month === 4 && day >= 11) || month === 5 || month === 6 || (month === 7 && day <= 10)) {  
+        quarter = 'Q2';
+        startDate = new Date(year, 3, 11); // Apr 11
+        endDate = new Date(year, 6, 10); // Jul 10
+      } else if ((month === 7 && day >= 11) || month === 8 || month === 9 || (month === 10 && day <= 10)) {
+        quarter = 'Q3';
+        startDate = new Date(year, 6, 11); // Jul 11
+        endDate = new Date(year, 9, 10); // Oct 10
+      } else {
+        quarter = 'Q4';
+        if (month <= 1) { // January 1-10 belongs to Q4 of previous year
+          startDate = new Date(year - 1, 9, 11); // Oct 11 of previous year
+          endDate = new Date(year, 0, 10); // Jan 10 of current year
+        } else { // October 11 onwards
+          startDate = new Date(year, 9, 11); // Oct 11
+          endDate = new Date(year + 1, 0, 10); // Jan 10 of next year
+        }
+      }
+      
+      // Calculate progress through the quarter (0-1)
+      const totalQuarterDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+      const daysSinceStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+      const quarterProgress = Math.max(0, Math.min(1, daysSinceStart / totalQuarterDays));
+      
+      return { quarter, quarterProgress: quarterProgress * 100 };
+    };
+
+    const { quarter: currentQuarter, quarterProgress } = getQuarterInfo();
+
+    res.status(200).json({ 
+      goals: transformedGoals,
+      quarterProgress: quarterProgress,
+      quarter: currentQuarter
+    });
   } catch (error) {
     console.error('Error fetching goals:', error);
     res.status(500).json({ error: error.message });
