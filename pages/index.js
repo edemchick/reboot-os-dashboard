@@ -15,6 +15,15 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
   const [longTermError, setLongTermError] = useState(null);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [expandedUpdates, setExpandedUpdates] = useState({});
+
+  // Function to toggle update expansion
+  const toggleUpdateExpansion = (goalId) => {
+    setExpandedUpdates(prev => ({
+      ...prev,
+      [goalId]: !prev[goalId]
+    }));
+  };
 
   useEffect(() => {
     if (status === 'loading') return; // Still loading
@@ -488,12 +497,63 @@ export default function Dashboard() {
                             </div>
                           )}
                           {goal.completedKRs && (
-                            <div>
+                            <div className="mb-3">
                               <h4 className="text-sm font-medium text-green-700 mb-2">Completed KRs:</h4>
                               <div 
                                 className="text-sm text-green-600 whitespace-pre-line"
                                 dangerouslySetInnerHTML={{ __html: goal.completedKRs }}
                               ></div>
+                            </div>
+                          )}
+                          
+                          {goal.latestUpdateDate && (goal.latestUpdateWentWell || goal.latestUpdateChallenges) && (
+                            <div>
+                              <button
+                                onClick={() => toggleUpdateExpansion(goal.id)}
+                                className="flex items-center gap-2 w-full text-left text-sm font-medium text-blue-700 hover:text-blue-800 mb-2 transition-colors"
+                              >
+                                <ChevronDown 
+                                  className={`h-4 w-4 transition-transform ${
+                                    expandedUpdates[goal.id] ? 'rotate-180' : ''
+                                  }`} 
+                                />
+                                {new Date(goal.latestUpdateDate).toLocaleDateString('en-US', { 
+                                  month: 'short', 
+                                  day: 'numeric',
+                                  year: new Date(goal.latestUpdateDate).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                                })} Update
+                              </button>
+                              
+                              {expandedUpdates[goal.id] && (
+                                <div className="ml-6 space-y-3 text-sm">
+                                  {goal.latestUpdateWentWell && (
+                                    <div>
+                                      <span className="font-medium text-green-700">✅ What went well:</span>
+                                      <div className="text-gray-600 whitespace-pre-line mt-1">
+                                        {goal.latestUpdateWentWell}
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {goal.latestUpdateChallenges && (
+                                    <div>
+                                      <span className="font-medium text-orange-700">⚠️ Challenges:</span>
+                                      <div className="text-gray-600 whitespace-pre-line mt-1">
+                                        {goal.latestUpdateChallenges}
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {goal.latestUpdateCompletedKRs && (
+                                    <div>
+                                      <span className="font-medium text-blue-700">🎯 KRs to mark complete:</span>
+                                      <div className="text-gray-600 whitespace-pre-line mt-1">
+                                        {goal.latestUpdateCompletedKRs}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

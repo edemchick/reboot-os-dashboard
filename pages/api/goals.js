@@ -101,7 +101,12 @@ export default async function handler(req, res) {
         focus: page.properties.Focus?.multi_select?.map(option => option.name).join(', ') || 'General',
         keyResults: extractRichTextWithLinks(page.properties['Open KRs']?.rich_text),
         completedKRs: extractRichTextWithLinks(page.properties['Completed KRs']?.rich_text),
-        lastUpdated: page.last_edited_time?.split('T')[0] || new Date().toISOString().split('T')[0]
+        lastUpdated: page.last_edited_time?.split('T')[0] || new Date().toISOString().split('T')[0],
+        // Latest update fields
+        latestUpdateDate: page.properties['Latest Update Date']?.date?.start || null,
+        latestUpdateWentWell: extractRichText(page.properties['Latest Update - What Went Well']?.rich_text) || '',
+        latestUpdateChallenges: extractRichText(page.properties['Latest Update - Challenges']?.rich_text) || '',
+        latestUpdateCompletedKRs: extractRichText(page.properties['Latest Update - Completed KRs']?.rich_text) || ''
       };
     });
 

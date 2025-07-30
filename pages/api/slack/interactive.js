@@ -290,6 +290,20 @@ async function handleCheckinSubmission(slack, payload, channelId) {
         properties: {
           Progress: {
             number: newProgress / 100
+          },
+          'Latest Update Date': {
+            date: {
+              start: new Date().toISOString().split('T')[0]
+            }
+          },
+          'Latest Update - What Went Well': {
+            rich_text: [{ text: { content: wentWell } }]
+          },
+          'Latest Update - Challenges': {
+            rich_text: [{ text: { content: challenges } }]
+          },
+          'Latest Update - Completed KRs': {
+            rich_text: [{ text: { content: completedKRs } }]
           }
         }
       })
