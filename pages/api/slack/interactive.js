@@ -276,6 +276,7 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     console.log('Goal ID:', goalData.goalId);
     console.log('Goal Title:', goalData.goalTitle);
     console.log('New Progress:', newProgress);
+    console.log('Update Data:', { wentWell, challenges, completedKRs });
     
     const notionToken = process.env.NOTION_TOKEN;
     
@@ -310,10 +311,19 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     });
 
     if (response.ok) {
-      console.log('✅ Notion progress updated successfully');
+      console.log('✅ Notion progress and updates saved successfully');
     } else {
       const errorData = await response.text();
       console.error('❌ Notion update failed:', response.status, errorData);
+      console.error('Request body was:', JSON.stringify({
+        properties: {
+          Progress: { number: newProgress / 100 },
+          'Latest Update Date': { date: { start: new Date().toISOString().split('T')[0] } },
+          'Latest Update - What Went Well': { rich_text: [{ text: { content: wentWell } }] },
+          'Latest Update - Challenges': { rich_text: [{ text: { content: challenges } }] },
+          'Latest Update - Completed KRs': { rich_text: [{ text: { content: completedKRs } }] }
+        }
+      }, null, 2));
     }
     
   } catch (error) {
