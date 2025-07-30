@@ -168,6 +168,25 @@ function createCheckinModal(goalData) {
       },
       {
         type: "input",
+        block_id: "completed_krs",
+        element: {
+          type: "plain_text_input",
+          action_id: "completed_krs_input",
+          multiline: true,
+          placeholder: {
+            type: "plain_text",
+            text: "List any KRs that should be moved to completed status"
+          }
+        },
+        label: {
+          type: "plain_text",
+          text: "3️⃣ Are there any KRs that should move over to complete?",
+          emoji: true
+        },
+        optional: true
+      },
+      {
+        type: "input",
         block_id: "progress_estimate",
         element: {
           type: "number_input",
@@ -179,7 +198,7 @@ function createCheckinModal(goalData) {
         },
         label: {
           type: "plain_text",
-          text: "3️⃣ Where would you estimate progress is? (0-100%)",
+          text: "4️⃣ Where would you estimate progress is? (0-100%)",
           emoji: true
         }
       }
@@ -194,6 +213,7 @@ async function handleCheckinSubmission(slack, payload, channelId) {
   // Extract form responses
   const wentWell = values.went_well.went_well_input.value;
   const challenges = values.challenges.challenges_input.value;
+  const completedKRs = values.completed_krs.completed_krs_input.value || '';
   const newProgress = parseInt(values.progress_estimate.progress_input.value);
   
   const user = payload.user;
@@ -237,7 +257,14 @@ async function handleCheckinSubmission(slack, payload, channelId) {
             text: `*⚠️ Challenges:*\n${challenges}`
           }
         ]
-      }
+      },
+      ...(completedKRs ? [{
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*🎯 KRs to mark complete:*\n${completedKRs}`
+        }
+      }] : [])
     ]
   };
   
