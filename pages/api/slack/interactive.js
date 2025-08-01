@@ -1,31 +1,14 @@
 import { WebClient } from '@slack/web-api';
 
-// Configure API route to handle form data
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '1mb',
-    },
-  },
-}
-
-export default async function handler(req, res) {
-  console.log('=== Slack Interactive API Called ===');
-  console.log('Method:', req.method);
-  console.log('Content-Type:', req.headers['content-type']);
-  console.log('Raw body:', req.body);
-
-  if (req.method !== 'POST') {
-    console.log('Invalid method:', req.method);
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+async function processSlackInteraction(req) {
+  console.log('🚨🚨🚨 === Processing Slack Interaction Async === 🚨🚨🚨');
+  
   const slackToken = process.env.SLACK_BOT_TOKEN;
   const channelId = process.env.SLACK_CHANNEL_ID;
   
   if (!slackToken) {
     console.error('SLACK_BOT_TOKEN not configured');
-    return res.status(500).json({ error: 'Slack bot token not configured' });
+    return;
   }
 
   try {
@@ -36,7 +19,9 @@ export default async function handler(req, res) {
     if (typeof req.body === 'string') {
       // If body is a string, it might be form-encoded
       const urlParams = new URLSearchParams(req.body);
-      payload = JSON.parse(urlParams.get('payload'));
+      const payloadStr = urlParams.get('payload');
+      console.log('Found payload string:', payloadStr?.substring(0, 200) + '...');
+      payload = JSON.parse(payloadStr);
     } else if (req.body.payload) {
       // If body is an object with payload property
       payload = JSON.parse(req.body.payload);
@@ -55,57 +40,215 @@ export default async function handler(req, res) {
       console.log('Handling block action...');
       const action = payload.actions[0];
       console.log('Action ID:', action.action_id);
+      console.log('Action value:', action.value);
+      console.log('Trigger ID:', payload.trigger_id);
+      
+      // Debug: Log ALL action IDs we receive
+      if (action.action_id === 'submit_goal_approval') {
+        console.log('🎯 FOUND submit_goal_approval action!');
+      } else {
+        console.log('❌ Action ID is NOT submit_goal_approval, it is:', action.action_id);
+      }
       
       if (action.action_id === 'start_checkin') {
         const goalData = JSON.parse(action.value);
         console.log('Opening modal for goal:', goalData.goalTitle);
         
         // Open a modal for the check-in form
-        await slack.views.open({
+        const result = await slack.views.open({
           trigger_id: payload.trigger_id,
           view: createCheckinModal(goalData)
         });
-        console.log('Modal opened successfully');
+        console.log('Modal opened successfully:', result.ok);
+      } else if (action.action_id === 'submit_goal_approval') {
+        const goalData = JSON.parse(action.value);
+        console.log('Opening goal approval modal for goal:', goalData.goalTitle);
+        
+        // Open a modal for goal approval (using working function temporarily)
+        const result = await slack.views.open({
+          trigger_id: payload.trigger_id,
+          view: createCheckinModal(goalData)
+        });
+        console.log('Goal approval modal opened successfully:', result.ok);
       }
     } else if (payload.type === 'view_submission') {
       // Handle modal submission
       console.log('Handling view submission...');
+      console.log('Modal callback_id:', payload.view.callback_id);
       
-      // Process the submission first
       try {
-        await handleCheckinSubmission(slack, payload, channelId);
-        console.log('Submission handled successfully');
-        
-        // Respond with success to Slack (simple response)
-        res.status(200).json({});
-        return;
-        
+        if (payload.view.callback_id === 'goal_approval') {
+          // Handle goal approval submission (separate from check-in)
+          await handleGoalApprovalSubmission(slack, payload, channelId);
+          console.log('Goal approval submission handled successfully');
+        } else {
+          // Handle regular check-in submission
+          await handleCheckinSubmission(slack, payload, channelId);
+          console.log('Check-in submission handled successfully');
+        }
       } catch (error) {
         console.error('Error handling submission:', error);
-        res.status(200).json({});
-        return;
       }
     }
 
-    console.log('Slack interaction handled successfully');
-    res.status(200).json({ success: true });
+    console.log('Slack interaction processed successfully');
   } catch (error) {
     console.error('=== Slack Interactive Error ===');
     console.error('Error name:', error.name);
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
     console.error('Raw request body:', req.body);
-    res.status(500).json({ 
-      error: error.message,
-      details: 'Check server logs for more details'
-    });
   }
+}
+
+// Configure API route to handle form data
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '1mb',
+    },
+  },
+}
+
+export default async function handler(req, res) {
+  console.log('🚨 === SLACK INTERACTIVE API CALLED === 🚨');
+  console.log('🕐 Timestamp:', new Date().toISOString());
+  console.log('📝 Method:', req.method);
+  console.log('📋 Content-Type:', req.headers['content-type']);
+  console.log('📊 Raw body type:', typeof req.body);
+  console.log('📦 Raw body:', JSON.stringify(req.body, null, 2));
+  
+  
+  // Acknowledge Slack immediately to prevent timeout
+  if (req.method === 'POST') {
+    console.log('Setting up async processing...');
+    
+    try {
+      // Process the request synchronously to catch errors
+      await processSlackInteraction(req);
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('🚨 Handler error:', error);
+      res.status(500).json({ error: error.message });
+    }
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    console.log('Invalid method:', req.method);
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
 }
 
 function createCheckinModal(goalData) {
   return {
     type: "modal",
     callback_id: "goal_checkin",
+    private_metadata: JSON.stringify(goalData),
+    title: {
+      type: "plain_text",
+      text: "Weekly Goal Check-in",
+      emoji: true
+    },
+    submit: {
+      type: "plain_text",
+      text: "Submit Update",
+      emoji: true
+    },
+    close: {
+      type: "plain_text",
+      text: "Cancel",
+      emoji: true
+    },
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `🎯 *${goalData.goalTitle}*\nCurrent: ${goalData.currentProgress}% | Expected: ${goalData.expectedProgress}%`
+        }
+      },
+      {
+        type: "input",
+        block_id: "went_well",
+        element: {
+          type: "plain_text_input",
+          action_id: "went_well_input",
+          multiline: true,
+          placeholder: {
+            type: "plain_text",
+            text: "What progress did you make this week?"
+          }
+        },
+        label: {
+          type: "plain_text",
+          text: "1️⃣ What went well this week?",
+          emoji: true
+        }
+      },
+      {
+        type: "input",
+        block_id: "challenges",
+        element: {
+          type: "plain_text_input",
+          action_id: "challenges_input",
+          multiline: true,
+          placeholder: {
+            type: "plain_text",
+            text: "What blockers or challenges did you face?"
+          }
+        },
+        label: {
+          type: "plain_text",
+          text: "2️⃣ What didn't go well this week?",
+          emoji: true
+        }
+      },
+      {
+        type: "input",
+        block_id: "completed_krs",
+        element: {
+          type: "plain_text_input",
+          action_id: "completed_krs_input",
+          multiline: true,
+          placeholder: {
+            type: "plain_text",
+            text: "List any KRs that should be moved to completed status"
+          }
+        },
+        label: {
+          type: "plain_text",
+          text: "3️⃣ Are there any KRs that should move over to complete?",
+          emoji: true
+        },
+        optional: true
+      },
+      {
+        type: "input",
+        block_id: "progress_estimate",
+        element: {
+          type: "number_input",
+          action_id: "progress_input",
+          is_decimal_allowed: false,
+          min_value: "0",
+          max_value: "100",
+          initial_value: goalData.currentProgress.toString()
+        },
+        label: {
+          type: "plain_text",
+          text: "4️⃣ Where would you estimate progress is? (0-100%)",
+          emoji: true
+        }
+      }
+    ]
+  };
+}
+
+function createGoalApprovalModal(goalData) {
+  return {
+    type: "modal",
+    callback_id: "goal_approval",
     private_metadata: JSON.stringify(goalData),
     title: {
       type: "plain_text",
@@ -336,4 +479,21 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     text: `✅ Thanks for your update! Your progress for "${goalData.goalTitle}" has been updated to ${newProgress}% and posted to the team channel.`
   });
 }
+
+async function handleGoalApprovalSubmission(slack, payload, channelId) {
+  const goalData = JSON.parse(payload.view.private_metadata);
+  const values = payload.view.state.values;
+  const user = payload.user;
+  
+  console.log('Goal approval submission received for:', goalData.goalTitle);
+  console.log('Submitted by:', user.real_name || user.name);
+  
+  // TODO: Add your custom logic here later
+  // For now, just send a placeholder confirmation
+  await slack.chat.postMessage({
+    channel: user.id,
+    text: `✅ Goal approval submission received for "${goalData.goalTitle}"! This is a placeholder - custom logic will be added later.`
+  });
+}
+
 
