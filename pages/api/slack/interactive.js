@@ -64,10 +64,10 @@ async function processSlackInteraction(req) {
         const goalData = JSON.parse(action.value);
         console.log('Opening goal approval modal for goal:', goalData.goalTitle);
         
-        // Open a modal for goal approval (using working function temporarily)
+        // Open a modal for goal approval (separate from check-in)
         const result = await slack.views.open({
           trigger_id: payload.trigger_id,
-          view: createCheckinModal(goalData)
+          view: createGoalApprovalModal(goalData)
         });
         console.log('Goal approval modal opened successfully:', result.ok);
       }
