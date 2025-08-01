@@ -70,6 +70,10 @@ async function processSlackInteraction(req) {
           view: createGoalApprovalModal(goalData)
         });
         console.log('Goal approval modal opened successfully:', result.ok);
+      } else if (action.action_id === 'grade_goals') {
+        // Handle Grade My Goals button click
+        console.log('Grade goals requested for:', payload.view.title.text);
+        await handleGradeGoals(slack, payload);
       }
     } else if (payload.type === 'view_submission') {
       // Handle modal submission
@@ -272,6 +276,21 @@ function createGoalApprovalModal(goalData) {
           type: "mrkdwn",
           text: `🎯 *${goalData.goalTitle}*`
         }
+      },
+      {
+        type: "actions",
+        elements: [
+          {
+            type: "button",
+            text: {
+              type: "plain_text",
+              text: "🎓 Grade My Goals",
+              emoji: true
+            },
+            action_id: "grade_goals",
+            style: "secondary"
+          }
+        ]
       },
       {
         type: "input",
@@ -515,6 +534,212 @@ async function handleGoalApprovalSubmission(slack, payload, channelId) {
     channel: user.id,
     text: `✅ Goal approval submission received for "${goalData.goalTitle}"! This is a placeholder - custom logic will be added later.`
   });
+}
+
+async function handleGradeGoals(slack, payload) {
+  try {
+    const values = payload.view.state.values;
+    const goalData = JSON.parse(payload.view.private_metadata);
+    
+    // Extract current KR values from the modal
+    const keyResults = [];
+    for (let i = 1; i <= 5; i++) {
+      const krValue = values[`kr_${i}`]?.[`kr_${i}_input`]?.value?.trim();
+      if (krValue) {
+        keyResults.push({ number: i, text: krValue });
+      }
+    }
+    
+    console.log(`Grading ${keyResults.length} key results for goal: ${goalData.goalTitle}`);
+    
+    // Grade the goals using OpenAI API
+    const feedback = await gradeGoalsWithOpenAI(keyResults, goalData.goalTitle);
+    
+    // Update the modal with feedback
+    const updatedModal = createGoalApprovalModalWithFeedback(goalData, values, feedback);
+    
+    await slack.views.update({
+      view_id: payload.view.id,
+      view: updatedModal
+    });
+    
+    console.log('Modal updated with Claude feedback');
+    
+  } catch (error) {
+    console.error('Error grading goals:', error);
+    
+    // Send error message to user
+    await slack.chat.postMessage({
+      channel: payload.user.id,
+      text: `❌ Sorry, there was an error grading your goals. Please try again or submit without grading.`
+    });
+  }
+}
+
+async function gradeGoalsWithOpenAI(keyResults, goalTitle) {
+  const OpenAI = require('openai');
+  
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+  
+  const krText = keyResults.map(kr => `${kr.number}. ${kr.text}`).join('\n');
+  
+  const prompt = `Please grade these Key Results for the goal "${goalTitle}" based on SMART criteria. 
+
+Note: RebootOS only grades Specific, Measurable, and Time-bound criteria. We do not evaluate Achievable or Relevant as those depend on business context.
+
+Key Results to grade:
+${krText}
+
+For each Key Result, provide:
+- ✅ or ❌ for Specific (is it clear and well-defined?)
+- ✅ or ❌ for Measurable (can progress be quantified?)  
+- ✅ or ❌ for Time-bound (does it have a clear deadline?)
+- 💡 Brief suggestion for improvement (if needed)
+
+Keep feedback concise and actionable. Format as JSON with this structure:
+{
+  "results": [
+    {
+      "number": 1,
+      "specific": true,
+      "measurable": false, 
+      "timeBound": true,
+      "suggestion": "Add a specific metric to measure success"
+    }
+  ]
+}`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      {
+        role: "user",
+        content: prompt
+      }
+    ],
+    max_tokens: 1000,
+    temperature: 0.1
+  });
+  
+  // Parse OpenAI's response
+  try {
+    const responseText = completion.choices[0].message.content;
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    } else {
+      throw new Error('No JSON found in OpenAI response');
+    }
+  } catch (parseError) {
+    console.error('Error parsing OpenAI response:', parseError);
+    console.log('Raw OpenAI response:', completion.choices[0].message.content);
+    throw new Error('Failed to parse OpenAI feedback');
+  }
+}
+
+function createGoalApprovalModalWithFeedback(goalData, currentValues, feedback) {
+  const blocks = [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `🎯 *${goalData.goalTitle}*`
+      }
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "🎓 Grade My Goals",
+            emoji: true
+          },
+          action_id: "grade_goals",
+          style: "secondary"
+        }
+      ]
+    }
+  ];
+
+  // Add each KR input with feedback below it
+  for (let i = 1; i <= 5; i++) {
+    const isRequired = i <= 2;
+    const currentValue = currentValues[`kr_${i}`]?.[`kr_${i}_input`]?.value || '';
+    
+    // Add the input field
+    blocks.push({
+      type: "input",
+      block_id: `kr_${i}`,
+      element: {
+        type: "plain_text_input",
+        action_id: `kr_${i}_input`,
+        multiline: true,
+        initial_value: currentValue,
+        placeholder: {
+          type: "plain_text",
+          text: i === 1 ? "Example: Increase user engagement by 25% by end of quarter" 
+               : i === 2 ? "Example: Launch 3 new features by March 31st"
+               : "Optional - Add if needed"
+        }
+      },
+      label: {
+        type: "plain_text",
+        text: `Key Result ${i}${isRequired ? ' *' : ''}`,
+        emoji: true
+      },
+      optional: !isRequired
+    });
+
+    // Add feedback if available for this KR
+    const krFeedback = feedback?.results?.find(r => r.number === i);
+    if (krFeedback && currentValue) {
+      const specificIcon = krFeedback.specific ? '✅' : '❌';
+      const measurableIcon = krFeedback.measurable ? '✅' : '❌';
+      const timeBoundIcon = krFeedback.timeBound ? '✅' : '❌';
+      
+      let feedbackText = `📊 *SMART Analysis:*\n${specificIcon} Specific | ${measurableIcon} Measurable | ${timeBoundIcon} Time-bound`;
+      
+      if (krFeedback.suggestion) {
+        feedbackText += `\n💡 ${krFeedback.suggestion}`;
+      }
+      
+      feedbackText += `\n\n_Note: RebootOS doesn't grade Achievable or Relevant as these depend on your business context._`;
+
+      blocks.push({
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: feedbackText
+        }
+      });
+    }
+  }
+
+  return {
+    type: "modal",
+    callback_id: "goal_approval",
+    private_metadata: JSON.stringify(goalData),
+    title: {
+      type: "plain_text",
+      text: "Propose Key Results",
+      emoji: true
+    },
+    submit: {
+      type: "plain_text",
+      text: "Submit for Approval",
+      emoji: true
+    },
+    close: {
+      type: "plain_text",
+      text: "Cancel",
+      emoji: true
+    },
+    blocks: blocks
+  };
 }
 
 
