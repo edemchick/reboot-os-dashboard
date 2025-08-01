@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
-import { Target, TrendingUp, AlertCircle, CheckCircle, Clock, LogOut, Settings, ChevronDown } from 'lucide-react';
+import { Target, TrendingUp, AlertCircle, CheckCircle, Clock, LogOut, Settings, ChevronDown, Plus, BookOpen, ArrowRight, Calendar } from 'lucide-react';
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
@@ -16,6 +16,14 @@ export default function Dashboard() {
   const [longTermError, setLongTermError] = useState(null);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [expandedUpdates, setExpandedUpdates] = useState({});
+  const [quarterInfo, setQuarterInfo] = useState({ quarter: 'Q1', quarterProgress: 0 });
+  const [adminConfig, setAdminConfig] = useState({ atRiskThreshold: 15 });
+  const [goalActions, setGoalActions] = useState({});
+  const [showCarryForwardModal, setShowCarryForwardModal] = useState(false);
+  const [selectedGoalForCarryForward, setSelectedGoalForCarryForward] = useState(null);
+  const [carryForwardForm, setCarryForwardForm] = useState({ title: '', focus: '', owner: '' });
+  const [employees, setEmployees] = useState([]);
+  const [focusOptions, setFocusOptions] = useState([]);
 
   // Function to toggle update expansion
   const toggleUpdateExpansion = (goalId) => {
@@ -32,7 +40,34 @@ export default function Dashboard() {
       return;
     }
     fetchGoals();
+    fetchQuarterInfo();
+    fetchAdminConfig();
+    fetchEmployees();
+    fetchFocusOptions();
   }, [session, status, router]);
+
+  const fetchQuarterInfo = async () => {
+    try {
+      const quarterData = await getQuarterInfo();
+      setQuarterInfo(quarterData);
+    } catch (error) {
+      console.error('Error fetching quarter info:', error);
+      setQuarterInfo({ quarter: 'Q1', quarterProgress: 0 });
+    }
+  };
+
+  const fetchAdminConfig = async () => {
+    try {
+      const response = await fetch('/api/admin/admin-config');
+      if (response.ok) {
+        const config = await response.json();
+        setAdminConfig(config);
+      }
+    } catch (error) {
+      console.error('Error fetching admin config:', error);
+      setAdminConfig({ atRiskThreshold: 15 }); // fallback
+    }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -74,6 +109,94 @@ export default function Dashboard() {
     }
   };
 
+  const handleCarryForwardSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('/api/carry-forward-goal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: carryForwardForm.title,
+          focus: carryForwardForm.focus,
+          owner: carryForwardForm.owner,
+          quarter: getNextQuarter(currentQuarter)
+        }),
+      });
+
+      if (response.ok) {
+        // Mark the goal as carried forward
+        setGoalActions(prev => ({
+          ...prev,
+          [selectedGoalForCarryForward.id]: {
+            ...prev[selectedGoalForCarryForward.id],
+            carryForward: true
+          }
+        }));
+        
+        // Close modal
+        setShowCarryForwardModal(false);
+        setSelectedGoalForCarryForward(null);
+        setCarryForwardForm({ title: '', focus: '', owner: '' });
+        
+        // Show success message (optional)
+        alert('Goal successfully carried forward to ' + getNextQuarter(currentQuarter));
+      } else {
+        const error = await response.json();
+        alert('Error carrying forward goal: ' + (error.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error carrying forward goal');
+    }
+  };
+
+  const handleCarryForwardCancel = () => {
+    setShowCarryForwardModal(false);
+    setSelectedGoalForCarryForward(null);
+    setCarryForwardForm({ title: '', focus: '', owner: '' });
+  };
+
+  const fetchEmployees = async () => {
+    try {
+      const response = await fetch('/api/employees');
+      if (response.ok) {
+        const data = await response.json();
+        setEmployees(data.employees);
+      }
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+      // Fallback to hardcoded list
+      setEmployees([
+        { name: 'Jimmy Buffi' },
+        { name: 'Evan Demchick' },
+        { name: 'Robert Calise' },
+        { name: 'Creagor Elsom' },
+        { name: 'Jacob Howenstein' }
+      ]);
+    }
+  };
+
+  const fetchFocusOptions = async () => {
+    try {
+      const response = await fetch('/api/focus-options');
+      if (response.ok) {
+        const data = await response.json();
+        setFocusOptions(data.focusOptions);
+      }
+    } catch (error) {
+      console.error('Error fetching focus options:', error);
+      // Fallback to basic options
+      setFocusOptions([
+        { name: 'MLB Teams', color: 'blue' },
+        { name: 'NBA Teams', color: 'purple' },
+        { name: 'Product', color: 'green' },
+        { name: 'Infrastructure', color: 'orange' }
+      ]);
+    }
+  };
+
   const fetchGoals = async () => {
     try {
       const response = await fetch('/api/goals');
@@ -94,50 +217,71 @@ export default function Dashboard() {
   };
 
   // Function to determine current quarter and calculate progress through it
-  const getQuarterInfo = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1; // JavaScript months are 0-indexed
-    const day = now.getDate();
-    
-    let quarter, startDate, endDate;
-    
-    if ((month === 1 && day >= 11) || month === 2 || month === 3 || (month === 4 && day <= 10)) {
-      quarter = 'Q1';
-      startDate = new Date(year, 0, 11); // Jan 11
-      endDate = new Date(year, 3, 10); // Apr 10
-    } else if ((month === 4 && day >= 11) || month === 5 || month === 6 || (month === 7 && day <= 10)) {
-      quarter = 'Q2';
-      startDate = new Date(year, 3, 11); // Apr 11
-      endDate = new Date(year, 6, 10); // Jul 10
-    } else if ((month === 7 && day >= 11) || month === 8 || month === 9 || (month === 10 && day <= 10)) {
-      quarter = 'Q3';
-      startDate = new Date(year, 6, 11); // Jul 11
-      endDate = new Date(year, 9, 10); // Oct 10
-    } else {
-      quarter = 'Q4';
-      if (month >= 10) {
-        startDate = new Date(year, 9, 11); // Oct 11
-        endDate = new Date(year + 1, 0, 10); // Jan 10 next year
-      } else {
-        // We're in Jan 1-10 of the following year
-        startDate = new Date(year - 1, 9, 11); // Oct 11 previous year
-        endDate = new Date(year, 0, 10); // Jan 10 current year
+  const getQuarterInfo = async () => {
+    try {
+      const response = await fetch('/api/admin/quarterly-config');
+      if (response.ok) {
+        const config = await response.json();
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const day = now.getDate();
+
+        // Check each quarter to see which one we're in
+        for (const [quarterName, quarterConfig] of Object.entries(config.quarters)) {
+          const { start, end } = quarterConfig;
+          
+          let startDate, endDate;
+          
+          if (end.nextYear) {
+            // Handle Q4 case where end date is in next year
+            startDate = new Date(year, start.month - 1, start.day);
+            endDate = new Date(year + 1, end.month - 1, end.day);
+            
+            if ((month > start.month || (month === start.month && day >= start.day)) ||
+                (month < end.month || (month === end.month && day <= end.day))) {
+              
+              const totalQuarterDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+              const daysSinceStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+              const quarterProgress = Math.max(0, Math.min(1, daysSinceStart / totalQuarterDays));
+              
+              return { quarter: quarterName, quarterProgress: quarterProgress * 100 };
+            }
+          } else {
+            // Handle normal quarters within the same year
+            startDate = new Date(year, start.month - 1, start.day);
+            endDate = new Date(year, end.month - 1, end.day);
+            
+            if ((month > start.month || (month === start.month && day >= start.day)) &&
+                (month < end.month || (month === end.month && day <= end.day))) {
+              
+              const totalQuarterDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+              const daysSinceStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+              const quarterProgress = Math.max(0, Math.min(1, daysSinceStart / totalQuarterDays));
+              
+              return { quarter: quarterName, quarterProgress: quarterProgress * 100 };
+            }
+          }
+        }
       }
+    } catch (error) {
+      console.error('Error fetching quarterly config:', error);
     }
     
-    // Calculate progress through the quarter (0-1)
-    const totalQuarterDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-    const daysSinceStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-    const quarterProgress = Math.max(0, Math.min(1, daysSinceStart / totalQuarterDays));
-    
-    return { quarter, quarterProgress: quarterProgress * 100 };
+    // Fallback to default if config fetch fails
+    return { quarter: 'Q1', quarterProgress: 0 };
   };
 
-  // Function to determine if a goal is at risk based on time-normalized progress
-  const isGoalAtRisk = (completion, quarterProgress) => {
-    // Goal is at risk if completion percentage is less than quarter progress percentage
-    return completion < quarterProgress;
+  // Function to determine if a goal is at risk based on configurable threshold
+  const isGoalAtRisk = (completion, quarterProgress, threshold = 15) => {
+    // Goal is at risk if completion percentage is behind expected progress by the threshold amount
+    return completion < (quarterProgress - threshold);
+  };
+
+  // Function to get the next quarter
+  const getNextQuarter = (currentQuarter) => {
+    const quarterMap = { 'Q1': 'Q2', 'Q2': 'Q3', 'Q3': 'Q4', 'Q4': 'Q1' };
+    return quarterMap[currentQuarter] || 'Q1';
   };
 
   // Function to check if current user is admin
@@ -257,7 +401,7 @@ export default function Dashboard() {
     return null; // Will redirect to login
   }
 
-  const { quarter: currentQuarter, quarterProgress } = getQuarterInfo();
+  const { quarter: currentQuarter, quarterProgress } = quarterInfo;
   
   // Filter goals: show only current quarter, exclude "Non Priorities"
   const currentGoals = goals.filter(goal => 
@@ -271,7 +415,7 @@ export default function Dashboard() {
     ? Math.round(currentGoals.reduce((sum, goal) => sum + goal.completion, 0) / currentGoals.length)
     : 0;
 
-  const goalsAtRisk = currentGoals.filter(goal => isGoalAtRisk(goal.completion, quarterProgress));
+  const goalsAtRisk = currentGoals.filter(goal => isGoalAtRisk(goal.completion, quarterProgress, adminConfig.atRiskThreshold));
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -302,6 +446,18 @@ export default function Dashboard() {
                 >
                   Long Term
                 </button>
+                {isAdmin() && (
+                  <button
+                    onClick={() => handleTabChange('q4prep')}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      activeTab === 'q4prep'
+                        ? 'bg-green-100 text-green-700 border border-green-200'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    {getNextQuarter(currentQuarter)} Prep (WIP)
+                  </button>
+                )}
               </div>
               {activeTab === 'current' && (
                 <p className="text-sm text-gray-500 mt-2">
@@ -437,7 +593,7 @@ export default function Dashboard() {
                 </div>
               ) : (
                 currentGoals.map((goal) => {
-                  const atRisk = isGoalAtRisk(goal.completion, quarterProgress);
+                  const atRisk = isGoalAtRisk(goal.completion, quarterProgress, adminConfig.atRiskThreshold);
                   
                   return (
                     <div key={goal.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -565,7 +721,7 @@ export default function Dashboard() {
             </div>
           </>
         )
-        ) : (
+        ) : activeTab === 'longterm' ? (
           longTermLoading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -597,8 +753,294 @@ export default function Dashboard() {
               })()}
             </div>
           )
+        ) : (
+          // Q4 Preparation Tab
+          <div className="space-y-8">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">{getNextQuarter(currentQuarter)} 2025 Preparation (WIP)</h2>
+              <p className="text-gray-600">Plan and prepare for the upcoming quarter</p>
+            </div>
+
+            {/* Quarterly Preparation Checklist */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-blue-600" />
+                {getNextQuarter(currentQuarter)} Preparation Checklist
+              </h3>
+              <div className="space-y-3">
+                <label className="flex items-start gap-3 text-sm cursor-pointer hover:bg-blue-100 p-2 rounded">
+                  <input type="checkbox" className="mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500" />
+                  <span className="text-blue-800">
+                    <strong>1. Decide which {currentQuarter} goals should carry over</strong>
+                    <div className="text-blue-600 mt-1 text-xs">Review incomplete goals and determine which ones to continue in {getNextQuarter(currentQuarter)}</div>
+                  </span>
+                </label>
+                
+                <label className="flex items-start gap-3 text-sm cursor-pointer hover:bg-blue-100 p-2 rounded">
+                  <input type="checkbox" className="mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500" />
+                  <span className="text-blue-800">
+                    <strong>2. Decide key priorities for {getNextQuarter(currentQuarter)}</strong>
+                    <div className="text-blue-600 mt-1 text-xs">Identify 3-5 strategic objectives for the upcoming quarter</div>
+                  </span>
+                </label>
+                
+                <label className="flex items-start gap-3 text-sm cursor-pointer hover:bg-blue-100 p-2 rounded">
+                  <input type="checkbox" className="mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500" />
+                  <span className="text-blue-800">
+                    <strong>3. Decide owners for key priorities</strong>
+                    <div className="text-blue-600 mt-1 text-xs">Assign clear ownership for each {getNextQuarter(currentQuarter)} objective</div>
+                  </span>
+                </label>
+                
+                <label className="flex items-start gap-3 text-sm cursor-pointer hover:bg-blue-100 p-2 rounded">
+                  <input type="checkbox" className="mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500" />
+                  <span className="text-blue-800">
+                    <strong>4. Notify the owner to formulate KRs</strong>
+                    <div className="text-blue-600 mt-1 text-xs">Communicate with goal owners to develop Key Results for their objectives</div>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Q3 Goals Review */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Target className="h-5 w-5 text-green-600" />
+                {currentQuarter} Goals Review
+              </h3>
+              {currentGoals.length > 0 ? (
+                <div className="space-y-4">
+                  {currentGoals.map((goal) => (
+                    <div key={goal.id} className={`border border-gray-200 rounded-lg p-4 ${goalActions[goal.id]?.markComplete || goalActions[goal.id]?.carryForward ? 'opacity-75' : ''}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className={`font-medium text-gray-900 ${goalActions[goal.id]?.markComplete || goalActions[goal.id]?.carryForward ? 'line-through' : ''}`}>{goal.title}</h4>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-medium text-gray-600 ${goalActions[goal.id]?.markComplete || goalActions[goal.id]?.carryForward ? 'line-through' : ''}`}>{goal.completion}%</span>
+                          <div className="w-20 bg-gray-200 rounded-full h-2">
+                            <div
+                              className={`h-2 rounded-full ${getCompletionColor(goal.completion)}`}
+                              style={{ width: `${goal.completion}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+                        <span className={goalActions[goal.id]?.markComplete || goalActions[goal.id]?.carryForward ? 'line-through' : ''}>Owner: {goal.owner}</span>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getFocusColor(goal.focus)} ${goalActions[goal.id]?.markComplete || goalActions[goal.id]?.carryForward ? 'line-through' : ''}`}>
+                          {goal.focus}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-sm">
+                          <input 
+                            type="checkbox" 
+                            className="rounded border-gray-300"
+                            checked={goalActions[goal.id]?.markComplete || false}
+                            onChange={(e) => {
+                              setGoalActions(prev => ({
+                                ...prev,
+                                [goal.id]: {
+                                  ...prev[goal.id],
+                                  markComplete: e.target.checked,
+                                  carryForward: e.target.checked ? false : prev[goal.id]?.carryForward
+                                }
+                              }));
+                            }}
+                          />
+                          <span className={`text-gray-700 ${goalActions[goal.id]?.markComplete || goalActions[goal.id]?.carryForward ? 'line-through' : ''}`}>Mark as complete, or</span>
+                        </label>
+                        {goal.completion < 100 && (
+                          <label className="flex items-center gap-2 text-sm">
+                            <input 
+                              type="checkbox" 
+                              className="rounded border-gray-300"
+                              checked={goalActions[goal.id]?.carryForward || false}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  // Show carry forward modal
+                                  setSelectedGoalForCarryForward(goal);
+                                  setCarryForwardForm({
+                                    title: goal.title,
+                                    focus: goal.focus,
+                                    owner: goal.owner
+                                  });
+                                  setShowCarryForwardModal(true);
+                                } else {
+                                  // Uncheck carry forward
+                                  setGoalActions(prev => ({
+                                    ...prev,
+                                    [goal.id]: {
+                                      ...prev[goal.id],
+                                      carryForward: false
+                                    }
+                                  }));
+                                }
+                              }}
+                            />
+                            <span className={`text-gray-700 ${goalActions[goal.id]?.markComplete || goalActions[goal.id]?.carryForward ? 'line-through' : ''}`}>
+                              Carry forward to {getNextQuarter(currentQuarter)}
+                              {goalActions[goal.id]?.carryForward && (
+                                <span className="ml-2 text-xs text-blue-600 font-medium">(pending)</span>
+                              )}
+                            </span>
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500">No {currentQuarter} goals found to review.</p>
+              )}
+            </div>
+
+            {/* Q4 Goal Planning */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-purple-600" />
+                {getNextQuarter(currentQuarter)} Goal Planning
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-600">Start planning your {getNextQuarter(currentQuarter)} objectives</p>
+                  <button className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                    <Plus className="h-4 w-4" />
+                    Add {getNextQuarter(currentQuarter)} Goal
+                  </button>
+                </div>
+                
+                {/* Goal Template Options */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                  <div className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 cursor-pointer transition-colors">
+                    <h4 className="font-medium text-gray-900 mb-2">Growth & Innovation</h4>
+                    <p className="text-sm text-gray-600">Focus on expanding capabilities and exploring new opportunities</p>
+                    <ArrowRight className="h-4 w-4 text-blue-600 mt-2" />
+                  </div>
+                  <div className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 cursor-pointer transition-colors">
+                    <h4 className="font-medium text-gray-900 mb-2">Operational Excellence</h4>
+                    <p className="text-sm text-gray-600">Improve processes, efficiency, and quality of delivery</p>
+                    <ArrowRight className="h-4 w-4 text-blue-600 mt-2" />
+                  </div>
+                  <div className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 cursor-pointer transition-colors">
+                    <h4 className="font-medium text-gray-900 mb-2">Team & Culture</h4>
+                    <p className="text-sm text-gray-600">Strengthen team capabilities and organizational culture</p>
+                    <ArrowRight className="h-4 w-4 text-blue-600 mt-2" />
+                  </div>
+                </div>
+
+                {/* Next Quarter Timeline */}
+                <div className="bg-gray-50 rounded-lg p-4 mt-6">
+                  <h4 className="font-medium text-gray-900 mb-3">{getNextQuarter(currentQuarter)} 2025 Timeline</h4>
+                  <div className="text-sm text-gray-600">
+                    <p><strong>{getNextQuarter(currentQuarter)} Start:</strong> {getNextQuarter(currentQuarter) === 'Q1' ? 'January 11, 2026' : getNextQuarter(currentQuarter) === 'Q2' ? 'April 11, 2025' : getNextQuarter(currentQuarter) === 'Q3' ? 'July 11, 2025' : 'October 11, 2025'}</p>
+                    <p><strong>{getNextQuarter(currentQuarter)} End:</strong> {getNextQuarter(currentQuarter) === 'Q1' ? 'April 10, 2026' : getNextQuarter(currentQuarter) === 'Q2' ? 'July 10, 2025' : getNextQuarter(currentQuarter) === 'Q3' ? 'October 10, 2025' : 'January 10, 2026'}</p>
+                    <p><strong>Duration:</strong> ~13 weeks</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Items */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-green-900 mb-4">Next Steps</h3>
+              <ul className="space-y-2 text-sm text-green-800">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Complete the {getNextQuarter(currentQuarter)} preparation checklist above
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Review {currentQuarter} goals and mark carry-forwards
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Add new {getNextQuarter(currentQuarter)} goals using templates
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Coordinate with team on goal alignment
+                </li>
+              </ul>
+            </div>
+          </div>
         )}
       </div>
+
+      {/* Carry Forward Modal */}
+      {showCarryForwardModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Carry Forward Goal to {getNextQuarter(currentQuarter)}
+            </h3>
+            
+            <form onSubmit={handleCarryForwardSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Project Title
+                </label>
+                <input
+                  type="text"
+                  value={carryForwardForm.title}
+                  onChange={(e) => setCarryForwardForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Focus Area
+                </label>
+                <select
+                  value={carryForwardForm.focus}
+                  onChange={(e) => setCarryForwardForm(prev => ({ ...prev, focus: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Select Focus Area</option>
+                  {focusOptions.map(focus => (
+                    <option key={focus.name} value={focus.name}>{focus.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Owner
+                </label>
+                <select
+                  value={carryForwardForm.owner}
+                  onChange={(e) => setCarryForwardForm(prev => ({ ...prev, owner: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Select Owner</option>
+                  {employees.map(employee => (
+                    <option key={employee.name} value={employee.name}>{employee.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={handleCarryForwardCancel}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Carry Forward Goal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

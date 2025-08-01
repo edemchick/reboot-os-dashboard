@@ -1,0 +1,11 @@
+{
+  "adminEmails": [
+    "edemchick@rebootmotion.com",
+    "jbuffi@rebootmotion.com"
+  ],
+  "atRiskThreshold": 2,
+  "checkInTime": {
+    "hour": 9,
+    "timezone": "America/New_York"
+  }
+}

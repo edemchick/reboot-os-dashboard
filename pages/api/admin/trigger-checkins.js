@@ -1,4 +1,5 @@
 import { getCurrentSchedule } from './schedule';
+import { getAdminConfig } from './admin-config';
 
 // This endpoint is called by Vercel Cron jobs
 export default async function handler(req, res) {
@@ -13,6 +14,7 @@ export default async function handler(req, res) {
 
   try {
     const schedule = getCurrentSchedule();
+    const adminConfig = getAdminConfig();
     
     if (!schedule.enabled) {
       return res.status(200).json({ 
@@ -21,23 +23,25 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get current time in Eastern timezone
+    // Get current time in configured timezone
     const now = new Date();
-    const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+    const configuredTimezone = adminConfig.checkInTime?.timezone || "America/New_York";
+    const localTime = new Date(now.toLocaleString("en-US", {timeZone: configuredTimezone}));
     
-    const currentDay = easternTime.toLocaleDateString('en-US', { weekday: 'long' });
-    const currentHour = easternTime.getHours();
-    const currentTime = `${currentHour.toString().padStart(2, '0')}:${easternTime.getMinutes().toString().padStart(2, '0')}`;
+    const currentDay = localTime.toLocaleDateString('en-US', { weekday: 'long' });
+    const currentHour = localTime.getHours();
+    const currentTime = `${currentHour.toString().padStart(2, '0')}:${localTime.getMinutes().toString().padStart(2, '0')}`;
     
-    // Check if it's the right day and it's 10am Eastern (15:00 UTC when cron runs)
+    // Check if it's the right day and configured time
     const isRightDay = currentDay === schedule.day;
-    const isScheduledTime = currentHour === 10; // 10 AM Eastern
+    const configuredHour = adminConfig.checkInTime?.hour || 10;
+    const isScheduledTime = currentHour === configuredHour;
     
     if (isRightDay && isScheduledTime) {
       console.log('Triggering scheduled check-ins:', {
         day: currentDay,
         time: currentTime,
-        scheduled: `${schedule.day} at 10:00 AM Eastern`
+        scheduled: `${schedule.day} at ${configuredHour}:00 ${configuredTimezone.split('/')[1]?.replace('_', ' ')}`
       });
 
       // Make internal request to send check-ins
@@ -56,7 +60,7 @@ export default async function handler(req, res) {
           message: 'Weekly check-ins sent successfully',
           sent: true,
           scheduledDay: schedule.day,
-          scheduledTime: '10:00 AM Eastern',
+          scheduledTime: `${configuredHour}:00 ${configuredTimezone.split('/')[1]?.replace('_', ' ')}`,
           currentTime: currentTime,
           slackResponse: result
         });
@@ -66,10 +70,10 @@ export default async function handler(req, res) {
       }
     } else {
       return res.status(200).json({ 
-        message: `Not the right time. Current: ${currentDay} ${currentTime}, Scheduled: ${schedule.day} 10:00 AM Eastern`,
+        message: `Not the right time. Current: ${currentDay} ${currentTime}, Scheduled: ${schedule.day} ${configuredHour}:00 ${configuredTimezone.split('/')[1]?.replace('_', ' ')}`,
         sent: false,
         scheduledDay: schedule.day,
-        scheduledTime: '10:00 AM Eastern',
+        scheduledTime: `${configuredHour}:00 ${configuredTimezone.split('/')[1]?.replace('_', ' ')}`,
         currentDay: currentDay,
         currentTime: currentTime,
         isRightDay,

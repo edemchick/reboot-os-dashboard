@@ -33,14 +33,34 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     
-    // User ID to name mapping based on goal ownership
-    const userIdToName = {
-      '0e594686-ffd9-424b-9daa-0306638a2221': 'Jimmy Buffi',        // Build NBA Biomechanics Ecosystem, Dashboard 2.0
-      '46ee46c2-f482-48a5-8078-95cfc93815a1': 'Evan Demchick',     // Be MLB's best league partner
-      '6c9ff824-2dd2-4e19-b5b8-6051d56966fe': 'Robert Calise',     // Infrastructure 2.0 (Vanta)
-      '33227521-8428-4238-94e0-53401caa529b': 'Creagor Elsom',     // Infrastructure 2.0 (other)
-      '9b1d8a2c-2dfe-4fe7-a9a4-9fb330396bd3': 'Jacob Howenstein'   // Be MLB's best team partner
-    };
+    // Load dynamic user ID to name mapping from employee config
+    let userIdToName = {};
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const employeeConfigPath = path.join(process.cwd(), 'config', 'employee-config.json');
+      
+      if (fs.existsSync(employeeConfigPath)) {
+        const employeeConfig = JSON.parse(fs.readFileSync(employeeConfigPath, 'utf8'));
+        userIdToName = employeeConfig.employees.reduce((acc, employee) => {
+          acc[employee.notionUserId] = employee.name;
+          return acc;
+        }, {});
+      }
+    } catch (error) {
+      console.error('Error loading employee config, using fallback:', error);
+    }
+    
+    // Fallback mapping if config file doesn't exist or fails to load
+    if (Object.keys(userIdToName).length === 0) {
+      userIdToName = {
+        '0e594686-ffd9-424b-9daa-0306638a2221': 'Jimmy Buffi',
+        '46ee46c2-f482-48a5-8078-95cfc93815a1': 'Evan Demchick',
+        '6c9ff824-2dd2-4e19-b5b8-6051d56966fe': 'Robert Calise',
+        '33227521-8428-4238-94e0-53401caa529b': 'Creagor Elsom',
+        '9b1d8a2c-2dfe-4fe7-a9a4-9fb330396bd3': 'Jacob Howenstein'
+      };
+    }
 
     // Helper function to extract owner name from Notion people property
     const extractOwnerName = (ownerProp) => {
@@ -133,48 +153,8 @@ export default async function handler(req, res) {
       return a.focus.localeCompare(b.focus);
     });
 
-    // Calculate quarter progress
-    const getQuarterInfo = () => {
-      const now = new Date();
-      
-      let quarter, startDate, endDate;
-      
-      // Custom quarter system: Jan 11 - Apr 10 (Q1), Apr 11 - Jul 10 (Q2), Jul 11 - Oct 10 (Q3), Oct 11 - Jan 10 (Q4)
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1; // January is 1
-      const day = now.getDate();
-      
-      if ((month === 1 && day >= 11) || month === 2 || month === 3 || (month === 4 && day <= 10)) {
-        quarter = 'Q1';
-        startDate = new Date(year, 0, 11); // Jan 11
-        endDate = new Date(year, 3, 10); // Apr 10
-      } else if ((month === 4 && day >= 11) || month === 5 || month === 6 || (month === 7 && day <= 10)) {  
-        quarter = 'Q2';
-        startDate = new Date(year, 3, 11); // Apr 11
-        endDate = new Date(year, 6, 10); // Jul 10
-      } else if ((month === 7 && day >= 11) || month === 8 || month === 9 || (month === 10 && day <= 10)) {
-        quarter = 'Q3';
-        startDate = new Date(year, 6, 11); // Jul 11
-        endDate = new Date(year, 9, 10); // Oct 10
-      } else {
-        quarter = 'Q4';
-        if (month <= 1) { // January 1-10 belongs to Q4 of previous year
-          startDate = new Date(year - 1, 9, 11); // Oct 11 of previous year
-          endDate = new Date(year, 0, 10); // Jan 10 of current year
-        } else { // October 11 onwards
-          startDate = new Date(year, 9, 11); // Oct 11
-          endDate = new Date(year + 1, 0, 10); // Jan 10 of next year
-        }
-      }
-      
-      // Calculate progress through the quarter (0-1)
-      const totalQuarterDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-      const daysSinceStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-      const quarterProgress = Math.max(0, Math.min(1, daysSinceStart / totalQuarterDays));
-      
-      return { quarter, quarterProgress: quarterProgress * 100 };
-    };
-
+    // Import and use the configurable quarter logic
+    const { getQuarterInfo } = await import('../../utils/quarterUtils.js');
     const { quarter: currentQuarter, quarterProgress } = getQuarterInfo();
 
     res.status(200).json({ 

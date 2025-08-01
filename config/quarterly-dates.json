@@ -1,0 +1,45 @@
+{
+  "quarters": {
+    "Q1": {
+      "start": {
+        "month": 1,
+        "day": 12
+      },
+      "end": {
+        "month": 4,
+        "day": 11
+      }
+    },
+    "Q2": {
+      "start": {
+        "month": 4,
+        "day": 12
+      },
+      "end": {
+        "month": 7,
+        "day": 11
+      }
+    },
+    "Q3": {
+      "start": {
+        "month": 7,
+        "day": 12
+      },
+      "end": {
+        "month": 10,
+        "day": 11
+      }
+    },
+    "Q4": {
+      "start": {
+        "month": 10,
+        "day": 12
+      },
+      "end": {
+        "month": 1,
+        "day": 11,
+        "nextYear": true
+      }
+    }
+  }
+}
