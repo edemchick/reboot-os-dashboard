@@ -252,12 +252,12 @@ function createGoalApprovalModal(goalData) {
     private_metadata: JSON.stringify(goalData),
     title: {
       type: "plain_text",
-      text: "Weekly Goal Check-in",
+      text: "Propose Key Results",
       emoji: true
     },
     submit: {
       type: "plain_text",
-      text: "Submit Update",
+      text: "Submit for Approval",
       emoji: true
     },
     close: {
@@ -270,80 +270,101 @@ function createGoalApprovalModal(goalData) {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `🎯 *${goalData.goalTitle}*\nCurrent: ${goalData.currentProgress}% | Expected: ${goalData.expectedProgress}%`
+          text: `🎯 *${goalData.goalTitle}*`
         }
       },
       {
         type: "input",
-        block_id: "went_well",
+        block_id: "kr_1",
         element: {
           type: "plain_text_input",
-          action_id: "went_well_input",
+          action_id: "kr_1_input",
           multiline: true,
           placeholder: {
             type: "plain_text",
-            text: "What progress did you make this week?"
+            text: "Example: Increase user engagement by 25% by end of quarter"
           }
         },
         label: {
           type: "plain_text",
-          text: "1️⃣ What went well this week?",
+          text: "Key Result 1 *",
           emoji: true
         }
       },
       {
         type: "input",
-        block_id: "challenges",
+        block_id: "kr_2",
         element: {
           type: "plain_text_input",
-          action_id: "challenges_input",
+          action_id: "kr_2_input",
           multiline: true,
           placeholder: {
             type: "plain_text",
-            text: "What blockers or challenges did you face?"
+            text: "Example: Launch 3 new features by March 31st"
           }
         },
         label: {
           type: "plain_text",
-          text: "2️⃣ What didn't go well this week?",
+          text: "Key Result 2 *",
           emoji: true
         }
       },
       {
         type: "input",
-        block_id: "completed_krs",
+        block_id: "kr_3",
         element: {
           type: "plain_text_input",
-          action_id: "completed_krs_input",
+          action_id: "kr_3_input",
           multiline: true,
           placeholder: {
             type: "plain_text",
-            text: "List any KRs that should be moved to completed status"
+            text: "Optional - Add if needed"
           }
         },
         label: {
           type: "plain_text",
-          text: "3️⃣ Are there any KRs that should move over to complete?",
+          text: "Key Result 3",
           emoji: true
         },
         optional: true
       },
       {
         type: "input",
-        block_id: "progress_estimate",
+        block_id: "kr_4",
         element: {
-          type: "number_input",
-          action_id: "progress_input",
-          is_decimal_allowed: false,
-          min_value: "0",
-          max_value: "100",
-          initial_value: goalData.currentProgress.toString()
+          type: "plain_text_input",
+          action_id: "kr_4_input",
+          multiline: true,
+          placeholder: {
+            type: "plain_text",
+            text: "Optional - Add if needed"
+          }
         },
         label: {
           type: "plain_text",
-          text: "4️⃣ Where would you estimate progress is? (0-100%)",
+          text: "Key Result 4",
           emoji: true
-        }
+        },
+        optional: true
+      },
+      {
+        type: "input",
+        block_id: "kr_5",
+        element: {
+          type: "plain_text_input",
+          action_id: "kr_5_input",
+          multiline: true,
+          placeholder: {
+            type: "plain_text",
+            text: "Optional - Add if needed"
+          }
+        },
+        label: {
+          type: "plain_text",
+          text: "Key Result 5",
+          emoji: true
+        },
+        optional: true
       }
     ]
   };
