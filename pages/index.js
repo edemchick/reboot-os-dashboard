@@ -684,6 +684,7 @@ export default function Dashboard() {
                             type="checkbox"
                             checked={goal.status === 'Achieved'}
                             onChange={(e) => {
+                              alert(`Checkbox clicked for goal ${goal.id}, checked: ${e.target.checked}`);
                               if (e.target.checked) {
                                 updateGoalStatus(goal.id, 'Achieved');
                               }
