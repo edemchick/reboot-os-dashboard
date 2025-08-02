@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]';
 import { getCurrentSchedule } from './schedule';
+import { getAdminConfig } from './admin-config';
 
 // Check if current user is admin
 const isAdmin = (email) => {
@@ -26,12 +27,17 @@ export default async function handler(req, res) {
     }
 
     const schedule = getCurrentSchedule();
+    const adminConfig = getAdminConfig();
     const now = new Date();
     const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
     
     const currentDay = easternTime.toLocaleDateString('en-US', { weekday: 'long' });
     const currentTime = easternTime.toTimeString().slice(0, 5);
     const currentDate = easternTime.toLocaleDateString('en-US');
+
+    // Use configured time from admin config
+    const configuredHour = adminConfig.checkInTime?.hour || 10;
+    const configuredTime = `${configuredHour.toString().padStart(2, '0')}:00`;
 
     return res.status(200).json({
       schedule,
@@ -41,7 +47,7 @@ export default async function handler(req, res) {
         currentDate,
         timeZone: 'America/New_York (Eastern)',
         isScheduledDay: currentDay === schedule.day,
-        nextScheduledDate: getNextScheduledDate(schedule.day, '10:00')
+        nextScheduledDate: getNextScheduledDate(schedule.day, configuredTime, adminConfig.checkInTime?.timezone)
       },
       systemInfo: {
         serverTime: now.toISOString(),
@@ -56,32 +62,45 @@ export default async function handler(req, res) {
 }
 
 // Helper function to calculate next scheduled date
-function getNextScheduledDate(scheduledDay, scheduledTime) {
+function getNextScheduledDate(scheduledDay, scheduledTime, timezone = 'America/New_York') {
+  // Ultra-simple approach: just build the string directly
   const now = new Date();
-  const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+  
+  // Get current day of week in Eastern time
+  const currentDayInEastern = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'long'
+  }).format(now);
   
   const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const targetDayIndex = daysOfWeek.indexOf(scheduledDay);
-  const currentDayIndex = easternTime.getDay();
+  const currentDayIndex = daysOfWeek.indexOf(currentDayInEastern);
   
   let daysUntilTarget = targetDayIndex - currentDayIndex;
   if (daysUntilTarget <= 0) {
     daysUntilTarget += 7; // Next week
   }
   
-  const nextDate = new Date(easternTime);
-  nextDate.setDate(nextDate.getDate() + daysUntilTarget);
+  // Calculate the target date
+  const targetDate = new Date(now);
+  targetDate.setDate(targetDate.getDate() + daysUntilTarget);
   
-  const [hours, minutes] = scheduledTime.split(':');
-  nextDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-  
-  return nextDate.toLocaleDateString('en-US', {
+  // Format the date part
+  const dateFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
     weekday: 'long',
     year: 'numeric',
     month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: 'America/New_York'
+    day: 'numeric'
   });
+  
+  const datePart = dateFormatter.format(targetDate);
+  
+  // Parse the time and format it
+  const [hours, minutes] = scheduledTime.split(':');
+  const hour12 = parseInt(hours) > 12 ? parseInt(hours) - 12 : (parseInt(hours) === 0 ? 12 : parseInt(hours));
+  const ampm = parseInt(hours) >= 12 ? 'PM' : 'AM';
+  const timeStr = `${hour12}:${minutes.padStart(2, '0')} ${ampm}`;
+  
+  return `${datePart} at ${timeStr}`;
 }

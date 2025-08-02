@@ -10,7 +10,17 @@ const DEFAULT_CONFIG = {
   checkInTime: {
     hour: 10, // 10 AM
     timezone: 'America/New_York'
-  }
+  },
+  smartGoalsGuidance: `📋 **Key Results Best Practices**
+Write SMART Key Results that are:
+• **Specific**: Clear and well-defined outcomes, not vague statements
+• **Measurable**: Include numbers, percentages, or quantifiable metrics  
+• **Achievable**: Realistic given your resources and timeline
+• **Relevant**: Directly supports your goal and company priorities
+• **Time-bound**: Set clear deadlines (by end of quarter, by March 31st, etc.)
+
+Good example: "Launch 3 new features by March 31st"
+Avoid: "Work on new features"`
 };
 
 function ensureConfigDirectory() {
@@ -31,7 +41,20 @@ function getAdminConfig() {
     }
     
     const configData = fs.readFileSync(CONFIG_FILE, 'utf8');
-    return JSON.parse(configData);
+    const existingConfig = JSON.parse(configData);
+    
+    // Merge with defaults to ensure all fields are present
+    const mergedConfig = {
+      ...DEFAULT_CONFIG,
+      ...existingConfig,
+      // Handle nested objects properly
+      checkInTime: {
+        ...DEFAULT_CONFIG.checkInTime,
+        ...existingConfig.checkInTime
+      }
+    };
+    
+    return mergedConfig;
   } catch (error) {
     console.error('Error reading admin config:', error);
     return DEFAULT_CONFIG;
@@ -89,6 +112,11 @@ export default async function handler(req, res) {
             newConfig.checkInTime.hour > 23) {
           return res.status(400).json({ error: 'checkInTime.hour must be a number between 0 and 23' });
         }
+      }
+      
+      // Validate SMART goals guidance
+      if (newConfig.smartGoalsGuidance !== undefined && typeof newConfig.smartGoalsGuidance !== 'string') {
+        return res.status(400).json({ error: 'smartGoalsGuidance must be a string' });
       }
       
       const success = saveAdminConfig(newConfig);

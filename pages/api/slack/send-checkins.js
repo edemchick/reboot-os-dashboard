@@ -33,10 +33,24 @@ export default async function handler(req, res) {
       }
       
       const goalsData = await goalsResponse.json();
-      goals = goalsData.goals;
+      const allGoals = goalsData.goals;
+      const currentQuarter = goalsData.quarter;
       quarterProgress = goalsData.quarterProgress;
       
-      console.log('Fetched goals data:', { goalCount: goals.length, quarterProgress });
+      // Filter goals to only current quarter (same logic as dashboard)
+      goals = allGoals.filter(goal => 
+        goal.quarter === currentQuarter && 
+        goal.quarter !== 'Non Priorities' && 
+        goal.quarter !== 'Not Prioritized' && 
+        goal.quarter !== 'Backlog'
+      );
+      
+      console.log('Fetched goals data:', { 
+        totalGoals: allGoals.length, 
+        currentQuarterGoals: goals.length, 
+        currentQuarter,
+        quarterProgress 
+      });
     } catch (error) {
       console.error('Error fetching goals data:', error);
       return res.status(500).json({ error: 'Failed to fetch goals data' });

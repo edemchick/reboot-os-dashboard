@@ -377,7 +377,7 @@ export default function AdminPage() {
               <h2 className="text-lg font-semibold text-gray-900">Weekly Check-in Schedule</h2>
             </div>
             <p className="mt-1 text-sm text-gray-600">
-              Configure automated Slack check-ins sent at 10:00 AM Eastern Time
+              Configure automated Slack check-ins sent at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'} Time
             </p>
           </div>
           
@@ -402,13 +402,13 @@ export default function AdminPage() {
                 onChange={(e) => handleInputChange('day', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="Monday">Monday at 10:00 AM Eastern</option>
-                <option value="Tuesday">Tuesday at 10:00 AM Eastern</option>
-                <option value="Wednesday">Wednesday at 10:00 AM Eastern</option>
-                <option value="Thursday">Thursday at 10:00 AM Eastern</option>
-                <option value="Friday">Friday at 10:00 AM Eastern</option>
-                <option value="Saturday">Saturday at 10:00 AM Eastern</option>
-                <option value="Sunday">Sunday at 10:00 AM Eastern</option>
+                <option value="Monday">Monday at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'}</option>
+                <option value="Tuesday">Tuesday at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'}</option>
+                <option value="Wednesday">Wednesday at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'}</option>
+                <option value="Thursday">Thursday at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'}</option>
+                <option value="Friday">Friday at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'}</option>
+                <option value="Saturday">Saturday at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'}</option>
+                <option value="Sunday">Sunday at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'}</option>
               </select>
             </div>
 
@@ -453,7 +453,7 @@ export default function AdminPage() {
                 <div>
                   <h4 className="text-sm font-medium text-yellow-800">Important Notes</h4>
                   <ul className="mt-1 text-sm text-yellow-700 space-y-1">
-                    <li>• Check-ins are sent automatically at 10:00 AM Eastern Time</li>
+                    <li>• Check-ins are sent automatically at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'} Time</li>
                     <li>• Check-ins will be sent to all goal owners on the selected day</li>
                     <li>• The manual "Send Manual Check-In" button will still work regardless of this setting</li>
                     <li>• Changes take effect immediately after saving</li>
@@ -762,6 +762,27 @@ export default function AdminPage() {
                     Goals are marked "at risk" when progress is this many percentage points behind expected timeline
                   </p>
                 </div>
+              </div>
+
+              {/* SMART Goals Guidance Section */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Goal Submission Guidance Text
+                  <span className="text-xs text-gray-500 ml-2">(Shown in goal approval modals)</span>
+                </label>
+                <textarea
+                  value={adminConfig.smartGoalsGuidance || ''}
+                  onChange={(e) => setAdminConfig(prev => ({
+                    ...prev,
+                    smartGoalsGuidance: e.target.value
+                  }))}
+                  rows={10}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter guidance text for users submitting goals..."
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  This text will appear at the top of goal submission modals to guide users in writing effective Key Results. Supports markdown formatting.
+                </p>
               </div>
 
               {/* Check-in Time Section */}
