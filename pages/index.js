@@ -35,10 +35,7 @@ export default function Dashboard() {
 
   // Function to update goal status
   const updateGoalStatus = async (goalId, newStatus) => {
-    console.log('🎯 updateGoalStatus called with:', { goalId, newStatus });
-    
     try {
-      console.log('📡 Making API call to /api/update-goal-status');
       const response = await fetch('/api/update-goal-status', {
         method: 'PATCH',
         headers: {
@@ -48,13 +45,7 @@ export default function Dashboard() {
       });
 
       if (!response.ok) {
-        const errorData = await response.text();
-        console.error('Failed to update goal status:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorData: errorData
-        });
-        throw new Error(`Failed to update goal status: ${response.status} ${errorData}`);
+        throw new Error('Failed to update goal status');
       }
 
       // Update the local goals state
@@ -693,12 +684,8 @@ export default function Dashboard() {
                             type="checkbox"
                             checked={goal.status === 'Achieved'}
                             onChange={(e) => {
-                              alert('Checkbox clicked! Checked: ' + e.target.checked);
-                              console.log('📝 Mark as Complete checkbox clicked:', e.target.checked);
                               if (e.target.checked) {
                                 updateGoalStatus(goal.id, 'Achieved');
-                              } else {
-                                updateGoalStatus(goal.id, 'In Progress');
                               }
                             }}
                             className="mr-2"
