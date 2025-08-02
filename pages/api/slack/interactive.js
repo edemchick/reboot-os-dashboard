@@ -65,17 +65,36 @@ async function processSlackInteraction(req) {
         console.log('Opening goal approval modal for goal:', goalData.goalTitle);
         
         // Open a modal for goal approval (separate from check-in)
+        const modalView = createGoalApprovalModal(goalData);
+        
+        // Add Grade My Goals button to the modal
+        const gradeButton = {
+          type: "actions",
+          elements: [
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: "🎓 Grade My Goals",
+                emoji: true
+              },
+              action_id: "grade_goals",
+              style: "secondary"
+            }
+          ]
+        };
+        
+        // Insert the grade button after the goal title (position 1)
+        modalView.blocks.splice(1, 0, gradeButton);
+        
         const result = await slack.views.open({
           trigger_id: payload.trigger_id,
-          view: createGoalApprovalModal(goalData)
+          view: modalView
         });
         console.log('Goal approval modal opened successfully:', result.ok);
       } else if (action.action_id === 'grade_goals') {
         console.log('Grading goals...');
         await handleGradeGoals(slack, payload);
-      } else if (action.action_id === 'grade_submitted_goals') {
-        console.log('Grading submitted goals...');
-        await handleGradeSubmittedGoals(slack, payload);
       }
     } else if (payload.type === 'view_submission') {
       // Handle modal submission
@@ -585,95 +604,7 @@ async function handleGoalApprovalSubmission(slack, payload, channelId) {
     text: `✅ Your goal approval request for "${goalData.goalTitle}" has been submitted! Your Key Results have been posted to the team channel for review.`
   });
   
-  // Send follow-up message with Grade button
-  await slack.chat.postMessage({
-    channel: user.id,
-    text: "Want to get AI feedback on your Key Results?",
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: "💡 *Optional:* Get AI feedback on your Key Results based on SMART criteria (Specific, Measurable, Time-bound)"
-        }
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: "🎓 Grade My Goals",
-              emoji: true
-            },
-            action_id: "grade_submitted_goals",
-            style: "secondary",
-            value: JSON.stringify({
-              goalData: goalData,
-              submittedKRs: keyResults
-            })
-          }
-        ]
-      }
-    ]
-  });
-  
   console.log('Goal approval submission handled successfully');
-}
-
-async function handleGradeSubmittedGoals(slack, payload) {
-  try {
-    const data = JSON.parse(payload.actions[0].value);
-    const { goalData, submittedKRs } = data;
-    const user = payload.user;
-    
-    console.log('Grading submitted KRs for goal:', goalData.goalTitle);
-    console.log('Submitted KRs:', submittedKRs);
-    
-    // Convert submitted KRs to the format expected by OpenAI
-    const keyResults = submittedKRs.map((kr, index) => ({
-      number: index + 1,
-      text: kr.replace(/^\d+\.\s*/, '') // Remove number prefix if it exists
-    }));
-    
-    // Grade the goals using OpenAI API
-    const feedback = await gradeGoalsWithOpenAI(keyResults, goalData.goalTitle);
-    
-    // Send feedback as a message
-    let feedbackText = `🎓 *AI Feedback for "${goalData.goalTitle}"*\n\n`;
-    
-    feedback.results.forEach(result => {
-      const specificIcon = result.specific ? '✅' : '❌';
-      const measurableIcon = result.measurable ? '✅' : '❌';
-      const timeBoundIcon = result.timeBound ? '✅' : '❌';
-      
-      feedbackText += `*Key Result ${result.number}:*\n`;
-      feedbackText += `${specificIcon} Specific | ${measurableIcon} Measurable | ${timeBoundIcon} Time-bound\n`;
-      
-      if (result.suggestion) {
-        feedbackText += `💡 ${result.suggestion}\n`;
-      }
-      feedbackText += '\n';
-    });
-    
-    feedbackText += '_Note: RebootOS doesn\'t grade Achievable or Relevant as these depend on your business context._';
-    
-    await slack.chat.postMessage({
-      channel: user.id,
-      text: feedbackText
-    });
-    
-    console.log('Submitted goals graded successfully');
-    
-  } catch (error) {
-    console.error('Error grading submitted goals:', error);
-    
-    await slack.chat.postMessage({
-      channel: payload.user.id,
-      text: `❌ Sorry, there was an error grading your goals. Please try again later.`
-    });
-  }
 }
 
 async function handleGradeGoals(slack, payload) {
