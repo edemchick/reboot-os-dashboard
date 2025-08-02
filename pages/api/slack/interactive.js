@@ -347,10 +347,7 @@ Write SMART Key Results that are:
 • *Measurable*: Include numbers, percentages, or quantifiable metrics  
 • *Achievable*: Realistic given your resources and timeline
 • *Relevant*: Directly supports your goal and company priorities
-• *Time-bound*: Set clear deadlines (by end of quarter, by March 31st, etc.)
-
-Good example: "Launch 3 new features by March 31st"
-Avoid: "Work on new features"`
+• *Time-bound*: Set clear deadlines (by end of quarter, by March 31st, etc.)`
         }
       },
       {
@@ -957,10 +954,7 @@ Write SMART Key Results that are:
 • *Measurable*: Include numbers, percentages, or quantifiable metrics  
 • *Achievable*: Realistic given your resources and timeline
 • *Relevant*: Directly supports your goal and company priorities
-• *Time-bound*: Set clear deadlines (by end of quarter, by March 31st, etc.)
-
-Good example: "Launch 3 new features by March 31st"
-Avoid: "Work on new features"`
+• *Time-bound*: Set clear deadlines (by end of quarter, by March 31st, etc.)`
       }
     },
     {
