@@ -33,6 +33,42 @@ export default function Dashboard() {
     }));
   };
 
+  // Function to update goal status
+  const updateGoalStatus = async (goalId, newStatus) => {
+    try {
+      const response = await fetch('/api/update-goal-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ goalId, status: newStatus }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Failed to update goal status:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData: errorData
+        });
+        throw new Error(`Failed to update goal status: ${response.status} ${errorData}`);
+      }
+
+      // Update the local goals state
+      setGoals(prevGoals => 
+        prevGoals.map(goal => 
+          goal.id === goalId 
+            ? { ...goal, status: newStatus }
+            : goal
+        )
+      );
+
+    } catch (error) {
+      console.error('Error updating goal status:', error);
+      alert('Failed to update goal status. Please try again.');
+    }
+  };
+
   useEffect(() => {
     if (status === 'loading') return; // Still loading
     if (!session) {
@@ -596,7 +632,14 @@ export default function Dashboard() {
                   const atRisk = isGoalAtRisk(goal.completion, quarterProgress, adminConfig.atRiskThreshold);
                   
                   return (
-                    <div key={goal.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div 
+                      key={goal.id} 
+                      className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${
+                        goal.status === 'Achieved' || goal.status === 'Carried Forward' 
+                          ? 'line-through opacity-70' 
+                          : ''
+                      }`}
+                    >
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
@@ -638,6 +681,40 @@ export default function Dashboard() {
                             style={{ width: `${goal.completion}%` }}
                           ></div>
                         </div>
+                      </div>
+
+                      {/* Status Update Checkboxes */}
+                      <div className="mb-4 flex gap-4">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={goal.status === 'Achieved'}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                updateGoalStatus(goal.id, 'Achieved');
+                              } else {
+                                updateGoalStatus(goal.id, 'In Progress');
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">Mark as Complete</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={goal.status === 'Carried Forward'}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                updateGoalStatus(goal.id, 'Carried Forward');
+                              } else {
+                                updateGoalStatus(goal.id, 'In Progress');
+                              }
+                            }}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">Mark as Carry Forward</span>
+                        </label>
                       </div>
 
                       {/* Key Results */}
