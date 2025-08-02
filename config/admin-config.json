@@ -5,7 +5,7 @@
   ],
   "atRiskThreshold": 2,
   "checkInTime": {
-    "hour": 9,
+    "hour": 10,
     "timezone": "America/New_York"
   },
   "smartGoalsGuidance": "📋 **Key Results Best Practices**\nWrite SMART Key Results that are:\n• **Specific**: Clear and well-defined outcomes, not vague statements\n• **Measurable**: Include numbers, percentages, or quantifiable metrics  \n• **Achievable**: Realistic given your resources and timeline\n• **Relevant**: Directly supports your goal and company priorities\n• **Time-bound**: Set clear deadlines (by end of quarter, by March 31st, etc.)"

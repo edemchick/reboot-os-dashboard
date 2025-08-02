@@ -123,9 +123,9 @@ async function processSlackInteraction(req) {
       
       try {
         if (payload.view.callback_id === 'goal_approval') {
-          // Open confirmation modal instead of immediately processing
           const goalData = JSON.parse(payload.view.private_metadata);
           const values = payload.view.state.values;
+          const user = payload.user;
           
           // Extract the KRs they submitted
           const submittedKRs = [];
@@ -136,16 +136,52 @@ async function processSlackInteraction(req) {
             }
           }
           
-          // Open confirmation modal with grade option
-          const confirmationModal = createSubmissionConfirmationModal(goalData, submittedKRs);
+          // Format KRs for display
+          const krText = submittedKRs.map((kr, index) => `${index + 1}. ${kr}`).join('\n');
           
-          // Update the current modal to the confirmation modal
-          await slack.views.update({
-            view_id: payload.view.id,
-            view: confirmationModal
+          // Send message to #reboot_os channel
+          await slack.chat.postMessage({
+            channel: channelId,
+            text: `Goal approval request from ${user.real_name || user.name}`,
+            blocks: [
+              {
+                type: "section",
+                text: {
+                  type: "mrkdwn",
+                  text: `*🎯 Goal Approval Request from <@${user.id}>*`
+                }
+              },
+              {
+                type: "section",
+                fields: [
+                  {
+                    type: "mrkdwn",
+                    text: `*Goal:*\n${goalData.goalTitle}`
+                  },
+                  {
+                    type: "mrkdwn",
+                    text: `*Quarter:*\n${goalData.quarter || 'Current Quarter'}`
+                  }
+                ]
+              },
+              {
+                type: "section",
+                text: {
+                  type: "mrkdwn",
+                  text: `*📋 Proposed Key Results:*\n${krText}`
+                }
+              }
+            ]
           });
           
-          console.log('Opened confirmation modal with grade option');
+          // Send confirmation DM to user
+          await slack.chat.postMessage({
+            channel: user.id,
+            text: `✅ Your goal approval request for "${goalData.goalTitle}" has been submitted to the team channel for review.`
+          });
+          
+          // Return empty response to close modal
+          return;
         } else if (payload.view.callback_id === 'submission_confirmation') {
           // This is never reached - confirmation modal uses buttons, not submission
           console.log('Submission confirmation callback - should not happen');
@@ -190,12 +226,64 @@ export default async function handler(req, res) {
   
   // Acknowledge Slack immediately to prevent timeout
   if (req.method === 'POST') {
-    console.log('Setting up async processing...');
-    
     try {
-      // Process the request synchronously to catch errors
+      // Parse payload first
+      let payload;
+      if (typeof req.body === 'string') {
+        const urlParams = new URLSearchParams(req.body);
+        const payloadStr = urlParams.get('payload');
+        payload = JSON.parse(payloadStr);
+      } else if (req.body.payload) {
+        payload = JSON.parse(req.body.payload);
+      } else {
+        payload = req.body;
+      }
+      
+      // Handle view_submission directly
+      if (payload.type === 'view_submission' && payload.view.callback_id === 'goal_approval') {
+        const slackToken = process.env.SLACK_BOT_TOKEN;
+        const channelId = process.env.SLACK_CHANNEL_ID;
+        const slack = new WebClient(slackToken);
+        
+        const goalData = JSON.parse(payload.view.private_metadata);
+        const values = payload.view.state.values;
+        const user = payload.user;
+        
+        // Extract KRs
+        const submittedKRs = [];
+        for (let i = 1; i <= 5; i++) {
+          const krValue = values[`kr_${i}`]?.[`kr_${i}_input`]?.value?.trim();
+          if (krValue) submittedKRs.push(krValue);
+        }
+        
+        const krText = submittedKRs.map((kr, index) => `${index + 1}. ${kr}`).join('\n');
+        
+        // Send to channel
+        await slack.chat.postMessage({
+          channel: channelId,
+          text: `Goal approval request from ${user.real_name || user.name}`,
+          blocks: [{
+            type: "section",
+            text: {
+              type: "mrkdwn", 
+              text: `*🎯 Goal Approval Request from <@${user.id}>*\n\n*Goal:* ${goalData.goalTitle}\n\n*📋 Proposed Key Results:*\n${krText}`
+            }
+          }]
+        });
+        
+        // Send DM confirmation
+        await slack.chat.postMessage({
+          channel: user.id,
+          text: `✅ Your goal "${goalData.goalTitle}" has been submitted for approval.`
+        });
+        
+        return res.status(200).end();
+      }
+      
+      // For other interactions, process normally
       await processSlackInteraction(req);
       res.status(200).json({ success: true });
+      
     } catch (error) {
       console.error('🚨 Handler error:', error);
       res.status(500).json({ error: error.message });
@@ -370,13 +458,13 @@ _Good: "Launch 3 features by March 31st" | Avoid: "Work on features"_`
         },
         label: {
           type: "plain_text",
-          text: "Key Result 1 *",
+          text: "Key Result 1",
           emoji: true
         }
       },
       {
         type: "input",
-        block_id: "kr_2",
+        block_id: "kr_2", 
         element: {
           type: "plain_text_input",
           action_id: "kr_2_input",
@@ -388,7 +476,7 @@ _Good: "Launch 3 features by March 31st" | Avoid: "Work on features"_`
         },
         label: {
           type: "plain_text",
-          text: "Key Result 2 *",
+          text: "Key Result 2",
           emoji: true
         }
       },
@@ -948,9 +1036,17 @@ Keep feedback concise and actionable. Format as JSON with this structure:
 
 function createGoalApprovalModalWithFeedback(goalData, currentValues, feedback) {
   // Get SMART goals guidance from admin config
-  const { getAdminConfig } = require('./admin/admin-config');
-  const adminConfig = getAdminConfig();
-  const guidanceText = adminConfig.smartGoalsGuidance || '';
+  const fs = require('fs');
+  const path = require('path');
+  let guidanceText = '';
+  
+  try {
+    const adminConfigPath = path.join(process.cwd(), 'config', 'admin-config.json');
+    const adminConfig = JSON.parse(fs.readFileSync(adminConfigPath, 'utf8'));
+    guidanceText = adminConfig.smartGoalsGuidance || '';
+  } catch (error) {
+    console.error('Error loading admin config:', error);
+  }
 
   const blocks = [
     {
