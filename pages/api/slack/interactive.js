@@ -73,6 +73,30 @@ async function processSlackInteraction(req) {
       } else if (action.action_id === 'grade_goals') {
         console.log('Grading goals...');
         await handleGradeGoals(slack, payload);
+      } else if (action.action_id === 'confirm_submission') {
+        const data = JSON.parse(action.value);
+        console.log('Confirming submission for goal:', data.goalData.goalTitle);
+        
+        // Process the final submission using existing handler logic
+        const fakePayload = {
+          view: {
+            private_metadata: JSON.stringify(data.goalData),
+            state: {
+              values: {} // We already have the KRs in data.submittedKRs
+            }
+          },
+          user: payload.user
+        };
+        
+        await handleFinalGoalSubmission(slack, fakePayload, channelId, data.submittedKRs);
+        console.log('Final goal submission processed');
+      } else if (action.action_id === 'grade_before_submit') {
+        const data = JSON.parse(action.value);
+        console.log('Grading before submit for goal:', data.goalData.goalTitle);
+        
+        // Grade the KRs and show feedback, then allow editing or submitting
+        await handleGradeBeforeSubmit(slack, payload, data);
+        console.log('Grade before submit processed');
       }
     } else if (payload.type === 'view_submission') {
       // Handle modal submission
@@ -81,9 +105,32 @@ async function processSlackInteraction(req) {
       
       try {
         if (payload.view.callback_id === 'goal_approval') {
-          // Handle goal approval submission (separate from check-in)
-          await handleGoalApprovalSubmission(slack, payload, channelId);
-          console.log('Goal approval submission handled successfully');
+          // Open confirmation modal instead of immediately processing
+          const goalData = JSON.parse(payload.view.private_metadata);
+          const values = payload.view.state.values;
+          
+          // Extract the KRs they submitted
+          const submittedKRs = [];
+          for (let i = 1; i <= 5; i++) {
+            const krValue = values[`kr_${i}`]?.[`kr_${i}_input`]?.value?.trim();
+            if (krValue) {
+              submittedKRs.push(krValue);
+            }
+          }
+          
+          // Open confirmation modal with grade option
+          const confirmationModal = createSubmissionConfirmationModal(goalData, submittedKRs);
+          
+          // Update the current modal to the confirmation modal
+          await slack.views.update({
+            view_id: payload.view.id,
+            view: confirmationModal
+          });
+          
+          console.log('Opened confirmation modal with grade option');
+        } else if (payload.view.callback_id === 'submission_confirmation') {
+          // This is never reached - confirmation modal uses buttons, not submission
+          console.log('Submission confirmation callback - should not happen');
         } else {
           // Handle regular check-in submission
           await handleCheckinSubmission(slack, payload, channelId);
@@ -373,6 +420,76 @@ function createGoalApprovalModal(goalData) {
   };
 }
 
+function createSubmissionConfirmationModal(goalData, submittedKRs) {
+  const krText = submittedKRs.map((kr, index) => `${index + 1}. ${kr}`).join('\n');
+  
+  return {
+    type: "modal",
+    callback_id: "submission_confirmation",
+    private_metadata: JSON.stringify({ goalData, submittedKRs }),
+    title: {
+      type: "plain_text",
+      text: "Ready to Submit?",
+      emoji: true
+    },
+    close: {
+      type: "plain_text",
+      text: "Cancel",
+      emoji: true
+    },
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `🎯 *${goalData.goalTitle}*\n\nYou're about to submit these Key Results:`
+        }
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `📋 *Your Key Results:*\n${krText}`
+        }
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `What would you like to do?`
+        }
+      },
+      {
+        type: "actions",
+        elements: [
+          {
+            type: "button",
+            text: {
+              type: "plain_text",
+              text: "✅ Submit Now",
+              emoji: true
+            },
+            action_id: "confirm_submission",
+            style: "primary",
+            value: JSON.stringify({ goalData, submittedKRs })
+          },
+          {
+            type: "button",
+            text: {
+              type: "plain_text",
+              text: "🎓 Grade First",
+              emoji: true
+            },
+            action_id: "grade_before_submit",
+            style: "secondary",
+            value: JSON.stringify({ goalData, submittedKRs })
+          }
+        ]
+      }
+    ]
+  };
+}
+
 async function handleCheckinSubmission(slack, payload, channelId) {
   const goalData = JSON.parse(payload.view.private_metadata);
   const values = payload.view.state.values;
@@ -504,22 +621,15 @@ async function handleCheckinSubmission(slack, payload, channelId) {
   });
 }
 
-async function handleGoalApprovalSubmission(slack, payload, channelId) {
+async function handleFinalGoalSubmission(slack, payload, channelId, submittedKRs) {
   const goalData = JSON.parse(payload.view.private_metadata);
-  const values = payload.view.state.values;
   const user = payload.user;
   
-  console.log('Goal approval submission received for:', goalData.goalTitle);
+  console.log('Final goal submission received for:', goalData.goalTitle);
   console.log('Submitted by:', user.real_name || user.name);
   
-  // Extract Key Results from the form
-  const keyResults = [];
-  for (let i = 1; i <= 5; i++) {
-    const krValue = values[`kr_${i}`]?.[`kr_${i}_input`]?.value?.trim();
-    if (krValue) {
-      keyResults.push(`${i}. ${krValue}`);
-    }
-  }
+  // Use the provided submitted KRs (already formatted)
+  const keyResults = submittedKRs.map((kr, index) => `${index + 1}. ${kr}`);
   
   console.log('Key Results submitted:', keyResults);
   
@@ -583,6 +693,52 @@ async function handleGoalApprovalSubmission(slack, payload, channelId) {
   });
   
   console.log('Goal approval submission handled successfully');
+}
+
+async function handleGradeBeforeSubmit(slack, payload, data) {
+  try {
+    const { goalData, submittedKRs } = data;
+    
+    // Convert submitted KRs to format expected by OpenAI
+    const keyResults = submittedKRs.map((kr, index) => ({
+      number: index + 1,
+      text: kr
+    }));
+    
+    console.log('Grading KRs before submit:', keyResults);
+    
+    // Grade the goals using OpenAI API
+    const feedback = await gradeGoalsWithOpenAI(keyResults, goalData.goalTitle);
+    
+    // Create modal with KRs and feedback, plus submit option
+    // Convert submittedKRs to the format expected by the feedback modal
+    const mockFormValues = {};
+    submittedKRs.forEach((kr, index) => {
+      mockFormValues[`kr_${index + 1}`] = {
+        [`kr_${index + 1}_input`]: {
+          value: kr
+        }
+      };
+    });
+    
+    const feedbackModal = createGoalApprovalModalWithFeedback(goalData, mockFormValues, feedback);
+    
+    // Update the current modal to show feedback
+    await slack.views.update({
+      view_id: payload.view.id,
+      view: feedbackModal
+    });
+    
+    console.log('Updated modal with AI feedback');
+    
+  } catch (error) {
+    console.error('Error grading before submit:', error);
+    
+    await slack.chat.postMessage({
+      channel: payload.user.id,
+      text: `❌ Sorry, there was an error grading your goals. You can still submit them as-is if you'd like.`
+    });
+  }
 }
 
 async function handleGradeGoals(slack, payload) {
