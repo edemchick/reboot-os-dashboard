@@ -22,6 +22,7 @@ Create a `.env.local` file with:
 - `NEXTAUTH_SECRET`: Secret for NextAuth.js session encryption
 - `SLACK_BOT_TOKEN`: Slack bot OAuth token (starts with `xoxb-`)
 - `SLACK_CHANNEL_ID`: Slack channel name for posting summaries (e.g., `reboot_os`)
+- `OPENAI_API_KEY`: OpenAI API key for goal grading functionality
 
 ## Project Architecture
 

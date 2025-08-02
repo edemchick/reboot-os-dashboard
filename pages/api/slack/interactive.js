@@ -71,8 +71,7 @@ async function processSlackInteraction(req) {
         });
         console.log('Goal approval modal opened successfully:', result.ok);
       } else if (action.action_id === 'grade_goals') {
-        // Handle Grade My Goals button click
-        console.log('Grade goals requested for:', payload.view.title.text);
+        console.log('Grading goals...');
         await handleGradeGoals(slack, payload);
       }
     } else if (payload.type === 'view_submission') {
@@ -276,21 +275,6 @@ function createGoalApprovalModal(goalData) {
           type: "mrkdwn",
           text: `🎯 *${goalData.goalTitle}*`
         }
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: "🎓 Grade My Goals",
-              emoji: true
-            },
-            action_id: "grade_goals",
-            style: "secondary"
-          }
-        ]
       },
       {
         type: "input",
@@ -528,12 +512,77 @@ async function handleGoalApprovalSubmission(slack, payload, channelId) {
   console.log('Goal approval submission received for:', goalData.goalTitle);
   console.log('Submitted by:', user.real_name || user.name);
   
-  // TODO: Add your custom logic here later
-  // For now, just send a placeholder confirmation
+  // Extract Key Results from the form
+  const keyResults = [];
+  for (let i = 1; i <= 5; i++) {
+    const krValue = values[`kr_${i}`]?.[`kr_${i}_input`]?.value?.trim();
+    if (krValue) {
+      keyResults.push(`${i}. ${krValue}`);
+    }
+  }
+  
+  console.log('Key Results submitted:', keyResults);
+  
+  // Format the key results for posting
+  const krText = keyResults.length > 0 ? keyResults.join('\n') : 'No key results provided';
+  
+  // Post the goal approval request to the team channel
+  const approvalMessage = {
+    channel: channelId,
+    text: `Goal approval request from ${user.real_name || user.name}`,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*🎯 Goal Approval Request from <@${user.id}>*`
+        }
+      },
+      {
+        type: "section",
+        fields: [
+          {
+            type: "mrkdwn",
+            text: `*Goal:*\n${goalData.goalTitle}`
+          },
+          {
+            type: "mrkdwn",
+            text: `*Quarter:*\n${goalData.quarter || 'Current Quarter'}`
+          }
+        ]
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*📋 Proposed Key Results:*\n${krText}`
+        }
+      },
+      {
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: "Please review and provide feedback on these Key Results."
+          }
+        ]
+      }
+    ]
+  };
+  
+  // Send the approval request to the team channel
+  if (channelId) {
+    await slack.chat.postMessage(approvalMessage);
+    console.log('Goal approval request posted to team channel');
+  }
+  
+  // Send confirmation DM to the user
   await slack.chat.postMessage({
     channel: user.id,
-    text: `✅ Goal approval submission received for "${goalData.goalTitle}"! This is a placeholder - custom logic will be added later.`
+    text: `✅ Your goal approval request for "${goalData.goalTitle}" has been submitted! Your Key Results have been posted to the team channel for review.`
   });
+  
+  console.log('Goal approval submission handled successfully');
 }
 
 async function handleGradeGoals(slack, payload) {
