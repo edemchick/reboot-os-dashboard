@@ -62,52 +62,17 @@ async function processSlackInteraction(req) {
         console.log('Modal opened successfully:', result.ok);
       } else if (action.action_id === 'submit_goal_approval') {
         const goalData = JSON.parse(action.value);
-        console.log('Opening goal choice modal for goal:', goalData.goalTitle);
+        console.log('Opening goal approval modal for goal:', goalData.goalTitle);
         
-        // Open an intermediate choice modal
-        const result = await slack.views.open({
-          trigger_id: payload.trigger_id,
-          view: createGoalChoiceModal(goalData)
-        });
-        console.log('Goal choice modal opened successfully:', result.ok);
-      } else if (action.action_id === 'proceed_to_kr_input') {
-        const goalData = JSON.parse(action.value);
-        console.log('Opening KR input modal for goal:', goalData.goalTitle);
-        
-        // Open the KR input modal
+        // Open a modal for goal approval (separate from check-in)
         const result = await slack.views.open({
           trigger_id: payload.trigger_id,
           view: createGoalApprovalModal(goalData)
         });
-        console.log('KR input modal opened successfully:', result.ok);
+        console.log('Goal approval modal opened successfully:', result.ok);
       } else if (action.action_id === 'grade_goals') {
         console.log('Grading goals...');
         await handleGradeGoals(slack, payload);
-      } else if (action.action_id === 'show_smart_info') {
-        const goalData = JSON.parse(action.value);
-        console.log('Showing SMART info for goal:', goalData.goalTitle);
-        
-        // Send SMART criteria info as a message, then open KR input modal
-        await slack.chat.postMessage({
-          channel: payload.user.id,
-          text: `🎓 *SMART Goal Criteria for "${goalData.goalTitle}"*\n\n` +
-                `When creating your Key Results, make them:\n\n` +
-                `✅ *Specific* - Clear and well-defined\n` +
-                `✅ *Measurable* - Can progress be quantified?\n` +
-                `✅ *Time-bound* - Has a clear deadline\n\n` +
-                `💡 *Examples:*\n` +
-                `• "Increase user engagement by 25% by end of quarter"\n` +
-                `• "Launch 3 new features by March 31st"\n` +
-                `• "Reduce customer churn rate to under 5% by Q2 end"\n\n` +
-                `Ready to create your Key Results? Use the modal that just opened!`
-        });
-        
-        // Open the KR input modal
-        const result = await slack.views.open({
-          trigger_id: payload.trigger_id,
-          view: createGoalApprovalModal(goalData)
-        });
-        console.log('KR input modal opened after SMART info:', result.ok);
       }
     } else if (payload.type === 'view_submission') {
       // Handle modal submission
@@ -403,60 +368,6 @@ function createGoalApprovalModal(goalData) {
           emoji: true
         },
         optional: true
-      }
-    ]
-  };
-}
-
-function createGoalChoiceModal(goalData) {
-  return {
-    type: "modal",
-    callback_id: "goal_choice",
-    private_metadata: JSON.stringify(goalData),
-    title: {
-      type: "plain_text",
-      text: "Goal Setup Options",
-      emoji: true
-    },
-    close: {
-      type: "plain_text",
-      text: "Cancel",
-      emoji: true
-    },
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `🎯 *${goalData.goalTitle}*\n\nHow would you like to proceed?`
-        }
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: "📝 Create Key Results",
-              emoji: true
-            },
-            action_id: "proceed_to_kr_input",
-            style: "primary",
-            value: JSON.stringify(goalData)
-          },
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: "🎓 Learn About SMART Goals",
-              emoji: true
-            },
-            action_id: "show_smart_info",
-            style: "secondary",
-            value: JSON.stringify(goalData)
-          }
-        ]
       }
     ]
   };
