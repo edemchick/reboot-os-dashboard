@@ -35,7 +35,10 @@ export default function Dashboard() {
 
   // Function to update goal status
   const updateGoalStatus = async (goalId, newStatus) => {
+    console.log('🎯 updateGoalStatus called with:', { goalId, newStatus });
+    
     try {
+      console.log('📡 Making API call to /api/update-goal-status');
       const response = await fetch('/api/update-goal-status', {
         method: 'POST',
         headers: {
@@ -690,6 +693,7 @@ export default function Dashboard() {
                             type="checkbox"
                             checked={goal.status === 'Achieved'}
                             onChange={(e) => {
+                              console.log('📝 Mark as Complete checkbox clicked:', e.target.checked);
                               if (e.target.checked) {
                                 updateGoalStatus(goal.id, 'Achieved');
                               } else {
@@ -705,6 +709,7 @@ export default function Dashboard() {
                             type="checkbox"
                             checked={goal.status === 'Carried Forward'}
                             onChange={(e) => {
+                              console.log('📝 Mark as Carry Forward checkbox clicked:', e.target.checked);
                               if (e.target.checked) {
                                 updateGoalStatus(goal.id, 'Carried Forward');
                               } else {
