@@ -403,17 +403,6 @@ function createCheckinModal(goalData) {
 }
 
 function createGoalApprovalModal(goalData) {
-  const smartGuidance = `📋 *Key Results Best Practices*
-Write SMART Key Results that are:
-• *Specific*: Clear and well-defined outcomes, not vague statements
-• *Measurable*: Include numbers, percentages, or quantifiable metrics  
-• *Achievable*: Realistic given your resources and timeline
-• *Relevant*: Directly supports your goal and company priorities
-• *Time-bound*: Set clear deadlines (by end of quarter, by March 31st, etc.)
-
-Good example: "Launch 3 new features by March 31st"
-Avoid: "Work on new features"`;
-
   return {
     type: "modal",
     callback_id: "goal_approval",
@@ -440,8 +429,13 @@ Avoid: "Work on new features"`;
           type: "mrkdwn",
           text: `🎯 *${goalData.goalTitle}*
 
-_📋 Write SMART Key Results: Specific, Measurable, Achievable, Relevant, Time-bound_
-_Good: "Launch 3 features by March 31st" | Avoid: "Work on features"_`
+📋 *Key Results Best Practices*
+Write SMART Key Results that are:
+• *Specific*: Clear and well-defined outcomes, not vague statements
+• *Measurable*: Include numbers, percentages, or quantifiable metrics  
+• *Achievable*: Realistic given your resources and timeline
+• *Relevant*: Directly supports your goal and company priorities
+• *Time-bound*: Set clear deadlines (by end of quarter, by March 31st, etc.)`
         }
       },
       {
@@ -1035,61 +1029,38 @@ Keep feedback concise and actionable. Format as JSON with this structure:
 }
 
 function createGoalApprovalModalWithFeedback(goalData, currentValues, feedback) {
-  // Get SMART goals guidance from admin config
-  const fs = require('fs');
-  const path = require('path');
-  let guidanceText = '';
-  
-  try {
-    const adminConfigPath = path.join(process.cwd(), 'config', 'admin-config.json');
-    const adminConfig = JSON.parse(fs.readFileSync(adminConfigPath, 'utf8'));
-    guidanceText = adminConfig.smartGoalsGuidance || '';
-  } catch (error) {
-    console.error('Error loading admin config:', error);
-  }
-
   const blocks = [
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `🎯 *${goalData.goalTitle}*`
+        text: `🎯 *${goalData.goalTitle}*
+
+📋 *Key Results Best Practices*
+Write SMART Key Results that are:
+• *Specific*: Clear and well-defined outcomes, not vague statements
+• *Measurable*: Include numbers, percentages, or quantifiable metrics  
+• *Achievable*: Realistic given your resources and timeline
+• *Relevant*: Directly supports your goal and company priorities
+• *Time-bound*: Set clear deadlines (by end of quarter, by March 31st, etc.)`
       }
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "🎓 Grade My Goals",
+            emoji: true
+          },
+          action_id: "grade_goals",
+          style: "secondary"
+        }
+      ]
     }
   ];
-
-  // Add guidance text if configured
-  if (guidanceText.trim()) {
-    blocks.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: guidanceText
-      }
-    });
-    
-    // Add a divider after guidance
-    blocks.push({
-      type: "divider"
-    });
-  }
-
-  // Add the grade button
-  blocks.push({
-    type: "actions",
-    elements: [
-      {
-        type: "button",
-        text: {
-          type: "plain_text",
-          text: "🎓 Grade My Goals",
-          emoji: true
-        },
-        action_id: "grade_goals",
-        style: "secondary"
-      }
-    ]
-  });
 
   // Add each KR input with feedback below it
   for (let i = 1; i <= 5; i++) {
