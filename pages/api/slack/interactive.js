@@ -77,6 +77,34 @@ async function processSlackInteraction(req) {
         const data = JSON.parse(action.value);
         console.log('Confirming submission for goal:', data.goalData.goalTitle);
         
+        // Close the modal first
+        await slack.views.update({
+          view_id: payload.view.id,
+          view: {
+            type: "modal",
+            callback_id: "submission_complete",
+            title: {
+              type: "plain_text",
+              text: "Submitting...",
+              emoji: true
+            },
+            close: {
+              type: "plain_text",
+              text: "Close",
+              emoji: true
+            },
+            blocks: [
+              {
+                type: "section",
+                text: {
+                  type: "mrkdwn",
+                  text: `✅ Submitting your goal approval request for "${data.goalData.goalTitle}"...`
+                }
+              }
+            ]
+          }
+        });
+        
         // Call the submission logic directly with the data we have
         await handleDirectGoalSubmission(slack, payload.user, data.goalData, data.submittedKRs, channelId);
         console.log('Final goal submission processed');
