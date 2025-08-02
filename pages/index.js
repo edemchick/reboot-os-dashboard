@@ -679,6 +679,12 @@ export default function Dashboard() {
 
                       {/* Status Update Checkboxes */}
                       <div className="mb-4 flex gap-4">
+                        <button 
+                          onClick={() => alert('Button works!')}
+                          className="px-3 py-1 bg-blue-500 text-white rounded text-sm"
+                        >
+                          Test Button
+                        </button>
                         <label className="flex items-center">
                           <input
                             type="checkbox"
