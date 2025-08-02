@@ -40,7 +40,7 @@ export default function Dashboard() {
     try {
       console.log('📡 Making API call to /api/update-goal-status');
       const response = await fetch('/api/update-goal-status', {
-        method: 'POST',
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },

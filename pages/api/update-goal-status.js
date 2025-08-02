@@ -1,9 +1,5 @@
 export default async function handler(req, res) {
-  console.log('=== UPDATE GOAL STATUS API CALLED ===');
-  console.log('Method:', req.method);
-  console.log('Body:', req.body);
-  
-  if (req.method !== 'POST') {
+  if (req.method !== 'PATCH') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
