@@ -693,6 +693,7 @@ export default function Dashboard() {
                             type="checkbox"
                             checked={goal.status === 'Achieved'}
                             onChange={(e) => {
+                              alert('Checkbox clicked! Checked: ' + e.target.checked);
                               console.log('📝 Mark as Complete checkbox clicked:', e.target.checked);
                               if (e.target.checked) {
                                 updateGoalStatus(goal.id, 'Achieved');
