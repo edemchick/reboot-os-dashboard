@@ -277,21 +277,6 @@ function createGoalApprovalModal(goalData) {
         }
       },
       {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: "🎓 Grade My Goals",
-              emoji: true
-            },
-            action_id: "grade_goals",
-            style: "secondary"
-          }
-        ]
-      },
-      {
         type: "input",
         block_id: "kr_1",
         element: {
