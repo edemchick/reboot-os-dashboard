@@ -303,7 +303,8 @@ export default async function handler(req, res) {
                     goalId: goalData.goalId,
                     goalTitle: goalData.goalTitle,
                     submittedKRs: submittedKRs,
-                    userId: user.id
+                    userId: user.id,
+                    quarter: goalData.quarter
                   })
                 },
                 {
@@ -318,7 +319,8 @@ export default async function handler(req, res) {
                     goalId: goalData.goalId,
                     goalTitle: goalData.goalTitle,
                     submittedKRs: submittedKRs,
-                    userId: user.id
+                    userId: user.id,
+                    quarter: goalData.quarter
                   })
                 }
               ]
@@ -334,12 +336,16 @@ export default async function handler(req, res) {
         
         return res.status(200).end();
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'manager_feedback') {
+        console.log('🔄 Processing manager feedback submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
         const slack = new WebClient(slackToken);
         
         const feedbackData = JSON.parse(payload.view.private_metadata);
         const values = payload.view.state.values;
         const manager = payload.user;
+        
+        console.log('Feedback data:', feedbackData);
+        console.log('Manager:', manager.real_name || manager.name);
         
         // Extract feedback from modal
         const generalFeedback = values.general_feedback?.general_feedback_input?.value || '';
@@ -1272,16 +1278,65 @@ Write SMART Key Results that are:
 
 async function handleManagerApproval(slack, payload, data) {
   try {
-    const { goalId, goalTitle, submittedKRs, userId } = data;
+    const { goalId, goalTitle, submittedKRs, userId, quarter } = data;
     const manager = payload.user;
     
-    console.log('Processing manager approval for goal:', goalTitle);
+    console.log('Processing manager approval for goal:', goalTitle, 'Quarter:', quarter);
+    console.log('Original goalId (might be temp-id):', goalId);
     
-    // Save approved KRs to Notion's "Open KRs" column
     const notionToken = process.env.NOTION_TOKEN;
+    const databaseId = process.env.NOTION_DATABASE_ID || '238ee4a677df80c18e68d094de3fd6d6';
+    
+    // First, search for the actual goal by project title and quarter
+    const searchResponse = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${notionToken}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28'
+      },
+      body: JSON.stringify({
+        filter: {
+          and: [
+            {
+              property: "Project",
+              title: {
+                equals: goalTitle
+              }
+            },
+            {
+              property: "Quarter",
+              select: {
+                equals: quarter
+              }
+            }
+          ]
+        }
+      })
+    });
+
+    if (!searchResponse.ok) {
+      throw new Error(`Failed to search for goal: ${searchResponse.status}`);
+    }
+
+    const searchData = await searchResponse.json();
+    console.log(`Found ${searchData.results.length} matching goals`);
+    
+    if (searchData.results.length === 0) {
+      throw new Error(`No goal found with title "${goalTitle}" and quarter "${quarter}"`);
+    }
+    
+    if (searchData.results.length > 1) {
+      console.warn(`Multiple goals found with title "${goalTitle}" and quarter "${quarter}". Using the first one.`);
+    }
+    
+    const actualGoalId = searchData.results[0].id;
+    console.log('Actual goal ID found:', actualGoalId);
+    
+    // Now update the correct goal with approved KRs
     const krText = submittedKRs.join('\n');
     
-    const response = await fetch(`https://api.notion.com/v1/pages/${goalId}`, {
+    const updateResponse = await fetch(`https://api.notion.com/v1/pages/${actualGoalId}`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${notionToken}`,
@@ -1297,9 +1352,12 @@ async function handleManagerApproval(slack, payload, data) {
       })
     });
 
-    if (!response.ok) {
-      throw new Error(`Failed to update Notion: ${response.status}`);
+    if (!updateResponse.ok) {
+      const errorData = await updateResponse.text();
+      throw new Error(`Failed to update Notion goal: ${updateResponse.status} - ${errorData}`);
     }
+    
+    console.log('Successfully updated goal with approved KRs');
 
     // Update the original message to show it's been approved
     await slack.chat.update({
