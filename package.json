@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@notionhq/client": "^4.0.1",
     "@slack/bolt": "^4.4.0",
     "@slack/web-api": "^7.9.3",
     "lucide-react": "^0.263.1",
