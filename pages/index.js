@@ -873,6 +873,8 @@ export default function Dashboard() {
                             onChange={(e) => {
                               if (e.target.checked) {
                                 updateGoalStatus(goal.id, 'Achieved');
+                              } else {
+                                updateGoalStatus(goal.id, 'In Progress');
                               }
                             }}
                           />
@@ -896,6 +898,8 @@ export default function Dashboard() {
                                     owner: goal.owner
                                   });
                                   setShowCarryForwardModal(true);
+                                } else {
+                                  updateGoalStatus(goal.id, 'In Progress');
                                 }
                               }}
                             />
