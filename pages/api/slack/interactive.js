@@ -144,6 +144,8 @@ async function processSlackInteraction(req) {
           const values = payload.view.state.values;
           const user = payload.user;
           
+          console.log('Goal approval modal submitted with goalData:', JSON.stringify(goalData, null, 2));
+          
           // Extract the KRs they submitted
           const submittedKRs = [];
           for (let i = 1; i <= 5; i++) {
@@ -1281,13 +1283,34 @@ Write SMART Key Results that are:
 }
 
 async function handleManagerApproval(slack, payload, data) {
+  const { goalId, goalTitle, submittedKRs, userId, quarter } = data;
+  const manager = payload.user;
+  
   try {
-    const { goalId, goalTitle, submittedKRs, userId, quarter } = data;
-    const manager = payload.user;
     
     console.log('Processing manager approval for goal:', goalTitle, 'Quarter:', quarter);
     console.log('Original goalId (might be temp-id):', goalId);
     console.log('Full data object:', JSON.stringify(data, null, 2));
+    
+    // Fallback: if quarter is undefined, use current quarter
+    let actualQuarter = quarter;
+    if (!actualQuarter) {
+      console.warn('Quarter is undefined, determining current quarter...');
+      const now = new Date();
+      const month = now.getMonth() + 1; // 1-12
+      const day = now.getDate();
+      
+      if ((month === 1 && day >= 11) || (month >= 2 && month <= 4) || (month === 4 && day <= 10)) {
+        actualQuarter = 'Q1';
+      } else if ((month === 4 && day >= 11) || (month >= 5 && month <= 7) || (month === 7 && day <= 10)) {
+        actualQuarter = 'Q2';
+      } else if ((month === 7 && day >= 11) || (month >= 8 && month <= 10) || (month === 10 && day <= 10)) {
+        actualQuarter = 'Q3';
+      } else {
+        actualQuarter = 'Q4';
+      }
+      console.log('Determined current quarter as:', actualQuarter);
+    }
     
     const notionToken = process.env.NOTION_TOKEN;
     const databaseId = process.env.NOTION_DATABASE_ID || '238ee4a677df80c18e68d094de3fd6d6';
@@ -1312,7 +1335,7 @@ async function handleManagerApproval(slack, payload, data) {
             {
               property: "Quarter",
               select: {
-                equals: quarter
+                equals: actualQuarter
               }
             }
           ]
@@ -1328,11 +1351,11 @@ async function handleManagerApproval(slack, payload, data) {
     console.log(`Found ${searchData.results.length} matching goals`);
     
     if (searchData.results.length === 0) {
-      throw new Error(`No goal found with title "${goalTitle}" and quarter "${quarter}"`);
+      throw new Error(`No goal found with title "${goalTitle}" and quarter "${actualQuarter}"`);
     }
     
     if (searchData.results.length > 1) {
-      console.warn(`Multiple goals found with title "${goalTitle}" and quarter "${quarter}". Using the first one.`);
+      console.warn(`Multiple goals found with title "${goalTitle}" and quarter "${actualQuarter}". Using the first one.`);
     }
     
     const actualGoalId = searchData.results[0].id;
