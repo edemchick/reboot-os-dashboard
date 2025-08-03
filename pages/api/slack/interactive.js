@@ -1371,7 +1371,7 @@ async function handleManagerApproval(slack, payload, data) {
     console.log('Actual goal ID found:', actualGoalId);
     
     // Now update the correct goal with approved KRs
-    const krText = submittedKRs.join('\n');
+    const krText = submittedKRs.map(kr => `-${kr}`).join('\n\n');
     
     const updateResponse = await fetch(`https://api.notion.com/v1/pages/${actualGoalId}`, {
       method: 'PATCH',
