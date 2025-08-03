@@ -628,11 +628,7 @@ export default function Dashboard() {
                   return (
                     <div 
                       key={goal.id} 
-                      className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${
-                        goal.status === 'Achieved' || goal.status === 'Carried Forward' 
-                          ? 'line-through opacity-70' 
-                          : ''
-                      }`}
+                      className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
                     >
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
