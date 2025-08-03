@@ -297,7 +297,7 @@ export default async function handler(req, res) {
                   type: "button",
                   text: {
                     type: "plain_text",
-                    text: "✅ Approve & Save to Notion",
+                    text: "✅ Approve",
                     emoji: true
                   },
                   action_id: "approve_goal",
