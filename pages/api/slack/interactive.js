@@ -348,13 +348,17 @@ export default async function handler(req, res) {
         console.log('Manager:', manager.real_name || manager.name);
         
         // Extract feedback from modal
-        const generalFeedback = values.general_feedback?.general_feedback_input?.value || '';
+        const generalFeedback = values.overall_feedback?.overall_feedback_input?.value || '';
         const priorityLevel = values.priority_level?.priority_level_select?.selected_option?.value || 'medium';
+        
+        console.log('Extracted general feedback:', generalFeedback);
+        console.log('Extracted priority level:', priorityLevel);
         
         // Extract individual KR feedback
         const krFeedback = [];
         feedbackData.submittedKRs.forEach((kr, index) => {
-          const feedback = values[`kr_${index + 1}_feedback`]?.[`kr_${index + 1}_feedback_input`]?.value || '';
+          const feedback = values[`kr_feedback_${index}`]?.[`kr_feedback_input_${index}`]?.value || '';
+          console.log(`KR ${index + 1} feedback:`, feedback);
           if (feedback.trim()) {
             krFeedback.push(`*KR ${index + 1}:* ${kr}\n*Feedback:* ${feedback}`);
           }
@@ -1283,6 +1287,7 @@ async function handleManagerApproval(slack, payload, data) {
     
     console.log('Processing manager approval for goal:', goalTitle, 'Quarter:', quarter);
     console.log('Original goalId (might be temp-id):', goalId);
+    console.log('Full data object:', JSON.stringify(data, null, 2));
     
     const notionToken = process.env.NOTION_TOKEN;
     const databaseId = process.env.NOTION_DATABASE_ID || '238ee4a677df80c18e68d094de3fd6d6';
@@ -1384,6 +1389,19 @@ async function handleManagerApproval(slack, payload, data) {
     console.log('Manager approval completed successfully');
   } catch (error) {
     console.error('Error in handleManagerApproval:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    // Send error message to manager
+    try {
+      await slack.chat.postMessage({
+        channel: manager.id,
+        text: `❌ Error approving goal "${goalTitle}": ${error.message}`
+      });
+    } catch (notificationError) {
+      console.error('Failed to send error notification:', notificationError);
+    }
+    
     throw error;
   }
 }
