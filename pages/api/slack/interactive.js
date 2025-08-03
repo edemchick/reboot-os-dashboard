@@ -382,6 +382,33 @@ export default async function handler(req, res) {
         });
         
         return res.status(200).end();
+      } else if (payload.type === 'block_actions') {
+        const slackToken = process.env.SLACK_BOT_TOKEN;
+        const slack = new WebClient(slackToken);
+        const action = payload.actions[0];
+        
+        if (action.action_id === 'approve_goal') {
+          const data = JSON.parse(action.value);
+          console.log('Manager approving goal:', data.goalTitle);
+          
+          // Handle goal approval by manager
+          await handleManagerApproval(slack, payload, data);
+          console.log('Manager approval processed');
+          
+          return res.status(200).end();
+        } else if (action.action_id === 'request_changes') {
+          const data = JSON.parse(action.value);
+          console.log('Manager requesting changes for goal:', data.goalTitle);
+          
+          // Open feedback modal for manager
+          const result = await slack.views.open({
+            trigger_id: payload.trigger_id,
+            view: createFeedbackModal(data)
+          });
+          console.log('Feedback modal opened successfully:', result.ok);
+          
+          return res.status(200).end();
+        }
       }
       
       // For other interactions, process normally
