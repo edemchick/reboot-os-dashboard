@@ -22,8 +22,24 @@ export default function Dashboard() {
   const [showCarryForwardModal, setShowCarryForwardModal] = useState(false);
   const [selectedGoalForCarryForward, setSelectedGoalForCarryForward] = useState(null);
   const [carryForwardForm, setCarryForwardForm] = useState({ title: '', focus: '', owner: '' });
+  const [showAddGoalModal, setShowAddGoalModal] = useState(false);
+  const [addGoalForm, setAddGoalForm] = useState({ title: '', focus: '', owner: '' });
   const [employees, setEmployees] = useState([]);
   const [focusOptions, setFocusOptions] = useState([]);
+  const [checklistState, setChecklistState] = useState({
+    carryOver: false,
+    keyPriorities: false,
+    owners: false,
+    krSubmission: false
+  });
+
+  // Function to toggle checklist items
+  const toggleChecklistItem = (itemKey) => {
+    setChecklistState(prev => ({
+      ...prev,
+      [itemKey]: !prev[itemKey]
+    }));
+  };
 
   // Function to toggle update expansion
   const toggleUpdateExpansion = (goalId) => {
@@ -188,6 +204,41 @@ export default function Dashboard() {
     setCarryForwardForm({ title: '', focus: '', owner: '' });
   };
 
+  const handleAddGoalSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('/api/carry-forward-goal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: addGoalForm.title,
+          focus: addGoalForm.focus,
+          owner: addGoalForm.owner,
+          quarter: getNextQuarter(quarterInfo.quarter),
+          isNewGoal: true
+        }),
+      });
+
+      if (response.ok) {
+        alert(`New ${getNextQuarter(quarterInfo.quarter)} goal created successfully!`);
+        setShowAddGoalModal(false);
+        setAddGoalForm({ title: '', focus: '', owner: '' });
+      } else {
+        throw new Error('Failed to create goal');
+      }
+    } catch (error) {
+      console.error('Error creating goal:', error);
+      alert('Failed to create goal. Please try again.');
+    }
+  };
+
+  const handleAddGoalCancel = () => {
+    setShowAddGoalModal(false);
+    setAddGoalForm({ title: '', focus: '', owner: '' });
+  };
+
   const fetchEmployees = async () => {
     try {
       const response = await fetch('/api/employees');
@@ -312,6 +363,43 @@ export default function Dashboard() {
   const getNextQuarter = (currentQuarter) => {
     const quarterMap = { 'Q1': 'Q2', 'Q2': 'Q3', 'Q3': 'Q4', 'Q4': 'Q1' };
     return quarterMap[currentQuarter] || 'Q1';
+  };
+
+  // Function to calculate important quarterly planning dates
+  const getQuarterlyPlanningDates = (nextQuarter) => {
+    // Define quarter start dates based on config
+    const quarterConfig = {
+      'Q1': { month: 1, day: 12 },   // Jan 12
+      'Q2': { month: 4, day: 12 },   // Apr 12  
+      'Q3': { month: 7, day: 12 },   // Jul 12
+      'Q4': { month: 10, day: 12 }   // Oct 12
+    };
+
+    const nextQuarterStart = quarterConfig[nextQuarter];
+    if (!nextQuarterStart) return null;
+
+    const currentYear = new Date().getFullYear();
+    let startYear = currentYear;
+    
+    // Handle Q1 which starts in the next year
+    if (nextQuarter === 'Q1') {
+      startYear = currentYear + 1;
+    }
+
+    const quarterStartDate = new Date(startYear, nextQuarterStart.month - 1, nextQuarterStart.day);
+    
+    // Calculate deadlines
+    const krDeadline = new Date(quarterStartDate);
+    krDeadline.setDate(krDeadline.getDate() - 7); // 1 week before quarter start
+    
+    const goalPlanningDeadline = new Date(quarterStartDate);
+    goalPlanningDeadline.setDate(goalPlanningDeadline.getDate() - 14); // 2 weeks before quarter start
+
+    return {
+      quarterStart: quarterStartDate,
+      krSubmissionDeadline: krDeadline,
+      goalPlanningDeadline: goalPlanningDeadline
+    };
   };
 
   // Function to check if current user is admin
@@ -801,39 +889,88 @@ export default function Dashboard() {
                 <CheckCircle className="h-5 w-5 text-blue-600" />
                 {getNextQuarter(currentQuarter)} Preparation Checklist
               </h3>
-              <div className="space-y-3">
-                <label className="flex items-start gap-3 text-sm cursor-pointer hover:bg-blue-100 p-2 rounded">
-                  <input type="checkbox" className="mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500" />
-                  <span className="text-blue-800">
-                    <strong>1. Decide which {currentQuarter} goals should carry over</strong>
-                    <div className="text-blue-600 mt-1 text-xs">Review incomplete goals and determine which ones to continue in {getNextQuarter(currentQuarter)}</div>
-                  </span>
-                </label>
+              {(() => {
+                const nextQuarter = getNextQuarter(currentQuarter);
+                const dates = getQuarterlyPlanningDates(nextQuarter);
+                const goalPlanningDate = dates?.goalPlanningDeadline?.toLocaleDateString('en-US', { 
+                  month: 'long', 
+                  day: 'numeric',
+                  year: 'numeric'
+                });
+                const krDeadlineDate = dates?.krSubmissionDeadline?.toLocaleDateString('en-US', { 
+                  month: 'long', 
+                  day: 'numeric',
+                  year: 'numeric' 
+                });
                 
-                <label className="flex items-start gap-3 text-sm cursor-pointer hover:bg-blue-100 p-2 rounded">
-                  <input type="checkbox" className="mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500" />
-                  <span className="text-blue-800">
-                    <strong>2. Decide key priorities for {getNextQuarter(currentQuarter)}</strong>
-                    <div className="text-blue-600 mt-1 text-xs">Identify 3-5 strategic objectives for the upcoming quarter</div>
-                  </span>
-                </label>
-                
-                <label className="flex items-start gap-3 text-sm cursor-pointer hover:bg-blue-100 p-2 rounded">
-                  <input type="checkbox" className="mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500" />
-                  <span className="text-blue-800">
-                    <strong>3. Decide owners for key priorities</strong>
-                    <div className="text-blue-600 mt-1 text-xs">Assign clear ownership for each {getNextQuarter(currentQuarter)} objective</div>
-                  </span>
-                </label>
-                
-                <label className="flex items-start gap-3 text-sm cursor-pointer hover:bg-blue-100 p-2 rounded">
-                  <input type="checkbox" className="mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500" />
-                  <span className="text-blue-800">
-                    <strong>4. Notify the owner to formulate KRs</strong>
-                    <div className="text-blue-600 mt-1 text-xs">Communicate with goal owners to develop Key Results for their objectives</div>
-                  </span>
-                </label>
-              </div>
+                return (
+                  <div className="space-y-3">
+                    <label className="flex items-start gap-3 text-sm cursor-pointer hover:bg-blue-100 p-2 rounded">
+                      <input 
+                        type="checkbox" 
+                        className="mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                        checked={checklistState.carryOver}
+                        onChange={() => toggleChecklistItem('carryOver')} 
+                      />
+                      <span className={`text-blue-800 ${checklistState.carryOver ? 'line-through opacity-60' : ''}`}>
+                        <strong>1. Decide which {currentQuarter} goals should carry over</strong>
+                        <div className="text-blue-600 mt-1 text-xs">
+                          Review incomplete goals and determine which ones to continue in {nextQuarter}
+                          {goalPlanningDate && <div className="text-blue-700 font-medium">⏰ Complete by: {goalPlanningDate}</div>}
+                        </div>
+                      </span>
+                    </label>
+                    
+                    <label className="flex items-start gap-3 text-sm cursor-pointer hover:bg-blue-100 p-2 rounded">
+                      <input 
+                        type="checkbox" 
+                        className="mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                        checked={checklistState.keyPriorities}
+                        onChange={() => toggleChecklistItem('keyPriorities')} 
+                      />
+                      <span className={`text-blue-800 ${checklistState.keyPriorities ? 'line-through opacity-60' : ''}`}>
+                        <strong>2. Decide key priorities for {nextQuarter}</strong>
+                        <div className="text-blue-600 mt-1 text-xs">
+                          Identify 3-5 strategic objectives for the upcoming quarter
+                          {goalPlanningDate && <div className="text-blue-700 font-medium">⏰ Complete by: {goalPlanningDate}</div>}
+                        </div>
+                      </span>
+                    </label>
+                    
+                    <label className="flex items-start gap-3 text-sm cursor-pointer hover:bg-blue-100 p-2 rounded">
+                      <input 
+                        type="checkbox" 
+                        className="mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                        checked={checklistState.owners}
+                        onChange={() => toggleChecklistItem('owners')} 
+                      />
+                      <span className={`text-blue-800 ${checklistState.owners ? 'line-through opacity-60' : ''}`}>
+                        <strong>3. Decide owners for key priorities</strong>
+                        <div className="text-blue-600 mt-1 text-xs">
+                          Assign clear ownership for each {nextQuarter} objective
+                          {goalPlanningDate && <div className="text-blue-700 font-medium">⏰ Complete by: {goalPlanningDate}</div>}
+                        </div>
+                      </span>
+                    </label>
+                    
+                    <label className="flex items-start gap-3 text-sm cursor-pointer hover:bg-blue-100 p-2 rounded">
+                      <input 
+                        type="checkbox" 
+                        className="mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                        checked={checklistState.krSubmission}
+                        onChange={() => toggleChecklistItem('krSubmission')} 
+                      />
+                      <span className={`text-blue-800 ${checklistState.krSubmission ? 'line-through opacity-60' : ''}`}>
+                        <strong>4. All KRs submitted by goal owners</strong>
+                        <div className="text-blue-600 mt-1 text-xs">
+                          Ensure all goal owners have submitted their Key Results for approval
+                          {krDeadlineDate && <div className="text-blue-700 font-medium">⏰ Deadline: {krDeadlineDate}</div>}
+                        </div>
+                      </span>
+                    </label>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Q3 Goals Review */}
@@ -929,30 +1066,15 @@ export default function Dashboard() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <p className="text-gray-600">Start planning your {getNextQuarter(currentQuarter)} objectives</p>
-                  <button className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                  <button 
+                    onClick={() => setShowAddGoalModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
                     <Plus className="h-4 w-4" />
                     Add {getNextQuarter(currentQuarter)} Goal
                   </button>
                 </div>
                 
-                {/* Goal Template Options */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                  <div className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 cursor-pointer transition-colors">
-                    <h4 className="font-medium text-gray-900 mb-2">Growth & Innovation</h4>
-                    <p className="text-sm text-gray-600">Focus on expanding capabilities and exploring new opportunities</p>
-                    <ArrowRight className="h-4 w-4 text-blue-600 mt-2" />
-                  </div>
-                  <div className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 cursor-pointer transition-colors">
-                    <h4 className="font-medium text-gray-900 mb-2">Operational Excellence</h4>
-                    <p className="text-sm text-gray-600">Improve processes, efficiency, and quality of delivery</p>
-                    <ArrowRight className="h-4 w-4 text-blue-600 mt-2" />
-                  </div>
-                  <div className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 cursor-pointer transition-colors">
-                    <h4 className="font-medium text-gray-900 mb-2">Team & Culture</h4>
-                    <p className="text-sm text-gray-600">Strengthen team capabilities and organizational culture</p>
-                    <ArrowRight className="h-4 w-4 text-blue-600 mt-2" />
-                  </div>
-                </div>
 
                 {/* Next Quarter Timeline */}
                 <div className="bg-gray-50 rounded-lg p-4 mt-6">
@@ -966,28 +1088,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Action Items */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-green-900 mb-4">Next Steps</h3>
-              <ul className="space-y-2 text-sm text-green-800">
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  Complete the {getNextQuarter(currentQuarter)} preparation checklist above
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  Review {currentQuarter} goals and mark carry-forwards
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  Add new {getNextQuarter(currentQuarter)} goals using templates
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  Coordinate with team on goal alignment
-                </li>
-              </ul>
-            </div>
           </div>
         )}
       </div>
@@ -1061,6 +1161,82 @@ export default function Dashboard() {
                   className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
                   Carry Forward Goal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Goal Modal */}
+      {showAddGoalModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              New {getNextQuarter(quarterInfo.quarter)} Goal
+            </h3>
+            
+            <form onSubmit={handleAddGoalSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Project Title
+                </label>
+                <input
+                  type="text"
+                  value={addGoalForm.title}
+                  onChange={(e) => setAddGoalForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Focus Area
+                </label>
+                <select
+                  value={addGoalForm.focus}
+                  onChange={(e) => setAddGoalForm(prev => ({ ...prev, focus: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Select Focus Area</option>
+                  {focusOptions.map(focus => (
+                    <option key={focus.name} value={focus.name}>{focus.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Owner
+                </label>
+                <select
+                  value={addGoalForm.owner}
+                  onChange={(e) => setAddGoalForm(prev => ({ ...prev, owner: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Select Owner</option>
+                  {employees.map(employee => (
+                    <option key={employee.name} value={employee.name}>{employee.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={handleAddGoalCancel}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Create Goal
                 </button>
               </div>
             </form>
