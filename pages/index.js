@@ -677,45 +677,6 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      {/* Status Update Checkboxes */}
-                      <div className="mb-4 flex gap-4">
-                        <button 
-                          onClick={() => alert('Button works!')}
-                          className="px-3 py-1 bg-blue-500 text-white rounded text-sm"
-                        >
-                          Test Button
-                        </button>
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={goal.status === 'Achieved'}
-                            onClick={(e) => {
-                              alert(`Checkbox clicked for goal ${goal.id}, checked: ${e.target.checked}`);
-                              if (e.target.checked) {
-                                updateGoalStatus(goal.id, 'Achieved');
-                              }
-                            }}
-                            className="mr-2"
-                          />
-                          <span className="text-sm text-gray-700">Mark as Complete</span>
-                        </label>
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={goal.status === 'Carried Forward'}
-                            onChange={(e) => {
-                              console.log('📝 Mark as Carry Forward checkbox clicked:', e.target.checked);
-                              if (e.target.checked) {
-                                updateGoalStatus(goal.id, 'Carried Forward');
-                              } else {
-                                updateGoalStatus(goal.id, 'In Progress');
-                              }
-                            }}
-                            className="mr-2"
-                          />
-                          <span className="text-sm text-gray-700">Mark as Carry Forward</span>
-                        </label>
-                      </div>
 
                       {/* Key Results */}
                       {(goal.keyResults || goal.completedKRs) && (
@@ -888,7 +849,7 @@ export default function Dashboard() {
               {currentGoals.length > 0 ? (
                 <div className="space-y-4">
                   {currentGoals.map((goal) => (
-                    <div key={goal.id} className={`border border-gray-200 rounded-lg p-4 ${goalActions[goal.id]?.markComplete || goalActions[goal.id]?.carryForward ? 'opacity-75' : ''}`}>
+                    <div key={goal.id} className={`border border-gray-200 rounded-lg p-4 ${goal.status === 'Achieved' || goal.status === 'Carried Forward' ? 'opacity-75 line-through' : ''}`}>
                       <div className="flex items-center justify-between mb-2">
                         <h4 className={`font-medium text-gray-900 ${goalActions[goal.id]?.markComplete || goalActions[goal.id]?.carryForward ? 'line-through' : ''}`}>{goal.title}</h4>
                         <div className="flex items-center gap-2">
@@ -912,45 +873,24 @@ export default function Dashboard() {
                           <input 
                             type="checkbox" 
                             className="rounded border-gray-300"
-                            checked={goalActions[goal.id]?.markComplete || false}
+                            checked={goal.status === 'Achieved'}
                             onChange={(e) => {
-                              setGoalActions(prev => ({
-                                ...prev,
-                                [goal.id]: {
-                                  ...prev[goal.id],
-                                  markComplete: e.target.checked,
-                                  carryForward: e.target.checked ? false : prev[goal.id]?.carryForward
-                                }
-                              }));
+                              if (e.target.checked) {
+                                updateGoalStatus(goal.id, 'Achieved');
+                              }
                             }}
                           />
-                          <span className={`text-gray-700 ${goalActions[goal.id]?.markComplete || goalActions[goal.id]?.carryForward ? 'line-through' : ''}`}>Mark as complete, or</span>
+                          <span className="text-gray-700">Mark as complete, or</span>
                         </label>
                         {goal.completion < 100 && (
                           <label className="flex items-center gap-2 text-sm">
                             <input 
                               type="checkbox" 
                               className="rounded border-gray-300"
-                              checked={goalActions[goal.id]?.carryForward || false}
+                              checked={goal.status === 'Carried Forward'}
                               onChange={(e) => {
                                 if (e.target.checked) {
-                                  // Show carry forward modal
-                                  setSelectedGoalForCarryForward(goal);
-                                  setCarryForwardForm({
-                                    title: goal.title,
-                                    focus: goal.focus,
-                                    owner: goal.owner
-                                  });
-                                  setShowCarryForwardModal(true);
-                                } else {
-                                  // Uncheck carry forward
-                                  setGoalActions(prev => ({
-                                    ...prev,
-                                    [goal.id]: {
-                                      ...prev[goal.id],
-                                      carryForward: false
-                                    }
-                                  }));
+                                  updateGoalStatus(goal.id, 'Carried Forward');
                                 }
                               }}
                             />
