@@ -57,6 +57,7 @@ export default async function handler(req, res) {
                  extractRichText(page.properties.Progress?.title) ||
                  (page.properties.Progress?.number ? parseInt(page.properties.Progress.number) : ''),
         progressNumber: parseInt(page.properties.Progress?.number || 0),
+        progressDate: page.properties.Date?.date?.start || null,
         type: page.properties.Type?.select?.name || 'Uncategorized',
         owner: extractRichText(page.properties.Owner?.rich_text) || 'Unassigned',
         lastUpdated: page.last_edited_time?.split('T')[0] || new Date().toISOString().split('T')[0]

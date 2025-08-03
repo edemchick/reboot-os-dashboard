@@ -397,7 +397,7 @@ export default function Dashboard() {
                   </p>
                   {item.progress && (
                     <p className="text-sm text-gray-600">
-                      <span className="font-medium">Progress:</span> {item.progress}
+                      <span className="font-medium">Progress{item.progressDate ? ` (as of ${new Date(item.progressDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })})` : ''}:</span> {item.progress}
                     </p>
                   )}
                 </div>
