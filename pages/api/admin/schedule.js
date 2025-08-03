@@ -7,45 +7,105 @@ const isAdmin = (email) => {
   return adminEmails.includes(email);
 };
 
-// Default schedule settings - fixed time at 10:00 AM Eastern
+import { Client } from '@notionhq/client';
+
+// Initialize Notion client
+const notion = new Client({
+  auth: process.env.NOTION_TOKEN,
+});
+
+// Default schedule settings
 const defaultSchedule = {
+  enabled: false,
   day: 'Monday',
-  enabled: false
+  hour: 10,
+  timezone: 'America/New_York'
 };
 
-// For Vercel, we'll use a simple in-memory storage with environment variable fallback
-// In production, you might want to use a database like Vercel KV or similar
-let scheduleSettings = null;
-
-// Read schedule settings (from memory or environment variables)
-const readScheduleSettings = () => {
-  if (scheduleSettings) {
-    return scheduleSettings;
-  }
-  
+// Read schedule settings from Notion
+const readScheduleSettings = async () => {
   try {
-    // Try to read from environment variables as fallback
-    const envSchedule = {
-      day: process.env.SCHEDULE_DAY || defaultSchedule.day,
-      enabled: process.env.SCHEDULE_ENABLED === 'true' || defaultSchedule.enabled
+    const databaseId = process.env.NOTION_SETTINGS_DATABASE_ID;
+    if (!databaseId) {
+      console.log('No settings database ID found, using defaults');
+      return defaultSchedule;
+    }
+
+    const response = await notion.databases.query({
+      database_id: databaseId,
+      page_size: 1
+    });
+
+    if (response.results.length === 0) {
+      console.log('No settings found in database, using defaults');
+      return defaultSchedule;
+    }
+
+    const page = response.results[0];
+    const properties = page.properties;
+
+    const settings = {
+      enabled: properties.enabled?.checkbox ?? defaultSchedule.enabled,
+      day: properties.day?.select?.name ?? defaultSchedule.day,
+      hour: properties.hour?.number ?? defaultSchedule.hour,
+      timezone: properties.timezone?.select?.name ?? defaultSchedule.timezone
     };
-    scheduleSettings = envSchedule;
-    return envSchedule;
+
+    console.log('Schedule settings loaded from Notion:', settings);
+    return settings;
   } catch (error) {
-    console.error('Error reading schedule settings:', error);
+    console.error('Error reading schedule settings from Notion:', error);
     return defaultSchedule;
   }
 };
 
-// Write schedule settings (to memory)
-// Note: This will reset on server restart. For persistence, use a database.
-const writeScheduleSettings = (settings) => {
+// Write schedule settings to Notion
+const writeScheduleSettings = async (settings) => {
   try {
-    scheduleSettings = settings;
-    console.log('Schedule settings updated:', settings);
+    const databaseId = process.env.NOTION_SETTINGS_DATABASE_ID;
+    if (!databaseId) {
+      console.error('No settings database ID configured');
+      return false;
+    }
+
+    // Get the first (and should be only) page in the database
+    const response = await notion.databases.query({
+      database_id: databaseId,
+      page_size: 1
+    });
+
+    let pageId;
+    if (response.results.length > 0) {
+      // Update existing page
+      pageId = response.results[0].id;
+    } else {
+      // Create new page if none exists
+      const createResponse = await notion.pages.create({
+        parent: { database_id: databaseId },
+        properties: {
+          'Name': {
+            title: [{ text: { content: 'Schedule Settings' } }]
+          }
+        }
+      });
+      pageId = createResponse.id;
+    }
+
+    // Update the page with new settings
+    await notion.pages.update({
+      page_id: pageId,
+      properties: {
+        enabled: { checkbox: settings.enabled },
+        day: { select: { name: settings.day } },
+        hour: { number: settings.hour },
+        timezone: { select: { name: settings.timezone } }
+      }
+    });
+
+    console.log('Schedule settings saved to Notion:', settings);
     return true;
   } catch (error) {
-    console.error('Error writing schedule settings:', error);
+    console.error('Error writing schedule settings to Notion:', error);
     return false;
   }
 };
@@ -65,13 +125,13 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       // Return current schedule settings
-      const settings = readScheduleSettings();
+      const settings = await readScheduleSettings();
       return res.status(200).json(settings);
     }
 
     if (req.method === 'POST') {
       // Update schedule settings
-      const { day, enabled } = req.body;
+      const { enabled, day, hour, timezone } = req.body;
 
       // Validate input
       const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -83,16 +143,25 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Enabled must be a boolean value' });
       }
 
-      const newSettings = { day, enabled };
+      if (typeof hour !== 'number' || hour < 0 || hour > 23) {
+        return res.status(400).json({ error: 'Hour must be a number between 0 and 23' });
+      }
+
+      const validTimezones = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'UTC'];
+      if (!validTimezones.includes(timezone)) {
+        return res.status(400).json({ error: 'Invalid timezone' });
+      }
+
+      const newSettings = { enabled, day, hour, timezone };
       
-      if (writeScheduleSettings(newSettings)) {
+      if (await writeScheduleSettings(newSettings)) {
         return res.status(200).json({ 
           success: true, 
-          message: 'Schedule settings updated successfully',
+          message: 'Schedule settings saved successfully to Notion!',
           settings: newSettings
         });
       } else {
-        return res.status(500).json({ error: 'Failed to save schedule settings' });
+        return res.status(500).json({ error: 'Failed to save schedule settings to Notion' });
       }
     }
 
@@ -106,6 +175,6 @@ export default async function handler(req, res) {
 }
 
 // Export function to get current schedule (for use by other parts of the app)
-export const getCurrentSchedule = () => {
-  return readScheduleSettings();
+export const getCurrentSchedule = async () => {
+  return await readScheduleSettings();
 };

@@ -13,20 +13,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    const schedule = getCurrentSchedule();
-    const adminConfig = getAdminConfig();
+    const schedule = await getCurrentSchedule();
     
     if (!schedule.enabled) {
       return res.status(200).json({ 
         message: 'Scheduled check-ins are disabled',
-        sent: false 
+        sent: false,
+        schedule: schedule
       });
     }
 
-    // Get current time in configured timezone
+    // Get current time in the configured timezone
     const now = new Date();
-    const configuredTimezone = adminConfig.checkInTime?.timezone || "America/New_York";
-    const localTime = new Date(now.toLocaleString("en-US", {timeZone: configuredTimezone}));
+    const localTime = new Date(now.toLocaleString("en-US", {timeZone: schedule.timezone}));
     
     const currentDay = localTime.toLocaleDateString('en-US', { weekday: 'long' });
     const currentHour = localTime.getHours();
@@ -34,14 +33,13 @@ export default async function handler(req, res) {
     
     // Check if it's the right day and configured time
     const isRightDay = currentDay === schedule.day;
-    const configuredHour = adminConfig.checkInTime?.hour || 10;
-    const isScheduledTime = currentHour === configuredHour;
+    const isScheduledTime = currentHour === schedule.hour;
     
     if (isRightDay && isScheduledTime) {
       console.log('Triggering scheduled check-ins:', {
         day: currentDay,
         time: currentTime,
-        scheduled: `${schedule.day} at ${configuredHour}:00 ${configuredTimezone.split('/')[1]?.replace('_', ' ')}`
+        scheduled: `${schedule.day} at ${schedule.hour}:00 ${schedule.timezone.split('/')[1]?.replace('_', ' ')}`
       });
 
       // Make internal request to send check-ins
@@ -60,7 +58,7 @@ export default async function handler(req, res) {
           message: 'Weekly check-ins sent successfully',
           sent: true,
           scheduledDay: schedule.day,
-          scheduledTime: `${configuredHour}:00 ${configuredTimezone.split('/')[1]?.replace('_', ' ')}`,
+          scheduledTime: `${schedule.hour}:00 ${schedule.timezone.split('/')[1]?.replace('_', ' ')}`,
           currentTime: currentTime,
           slackResponse: result
         });
@@ -70,14 +68,15 @@ export default async function handler(req, res) {
       }
     } else {
       return res.status(200).json({ 
-        message: `Not the right time. Current: ${currentDay} ${currentTime}, Scheduled: ${schedule.day} ${configuredHour}:00 ${configuredTimezone.split('/')[1]?.replace('_', ' ')}`,
+        message: `Not the right time. Current: ${currentDay} ${currentTime}, Scheduled: ${schedule.day} ${schedule.hour}:00 ${schedule.timezone.split('/')[1]?.replace('_', ' ')}`,
         sent: false,
         scheduledDay: schedule.day,
-        scheduledTime: `${configuredHour}:00 ${configuredTimezone.split('/')[1]?.replace('_', ' ')}`,
+        scheduledTime: `${schedule.hour}:00 ${schedule.timezone.split('/')[1]?.replace('_', ' ')}`,
         currentDay: currentDay,
         currentTime: currentTime,
         isRightDay,
-        isScheduledTime
+        isScheduledTime,
+        schedule: schedule
       });
     }
 

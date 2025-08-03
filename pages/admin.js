@@ -7,8 +7,10 @@ export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [scheduleData, setScheduleData] = useState({
+    enabled: false,
     day: 'Monday',
-    enabled: false
+    hour: 10,
+    timezone: 'America/New_York'
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -377,7 +379,7 @@ export default function AdminPage() {
               <h2 className="text-lg font-semibold text-gray-900">Weekly Check-in Schedule</h2>
             </div>
             <p className="mt-1 text-sm text-gray-600">
-              Configure automated Slack check-ins sent at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'} Time
+              Configure automated Slack check-ins with flexible scheduling
             </p>
           </div>
           
@@ -393,25 +395,6 @@ export default function AdminPage() {
               </div>
             )}
 
-            <div className="max-w-md">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Day of Week
-              </label>
-              <select
-                value={scheduleData.day}
-                onChange={(e) => handleInputChange('day', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="Monday">Monday at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'}</option>
-                <option value="Tuesday">Tuesday at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'}</option>
-                <option value="Wednesday">Wednesday at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'}</option>
-                <option value="Thursday">Thursday at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'}</option>
-                <option value="Friday">Friday at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'}</option>
-                <option value="Saturday">Saturday at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'}</option>
-                <option value="Sunday">Sunday at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'}</option>
-              </select>
-            </div>
-
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -424,6 +407,86 @@ export default function AdminPage() {
                 Enable automatic weekly check-ins
               </label>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Day of Week
+                </label>
+                <select
+                  value={scheduleData.day}
+                  onChange={(e) => handleInputChange('day', e.target.value)}
+                  disabled={!scheduleData.enabled}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                    !scheduleData.enabled ? 'bg-gray-100 text-gray-400' : ''
+                  }`}
+                >
+                  <option value="Monday">Monday</option>
+                  <option value="Tuesday">Tuesday</option>
+                  <option value="Wednesday">Wednesday</option>
+                  <option value="Thursday">Thursday</option>
+                  <option value="Friday">Friday</option>
+                  <option value="Saturday">Saturday</option>
+                  <option value="Sunday">Sunday</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Time (Hour)
+                </label>
+                <select
+                  value={scheduleData.hour}
+                  onChange={(e) => handleInputChange('hour', parseInt(e.target.value))}
+                  disabled={!scheduleData.enabled}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                    !scheduleData.enabled ? 'bg-gray-100 text-gray-400' : ''
+                  }`}
+                >
+                  {Array.from({length: 24}, (_, i) => (
+                    <option key={i} value={i}>
+                      {i === 0 ? '12:00 AM' : 
+                       i < 12 ? `${i}:00 AM` : 
+                       i === 12 ? '12:00 PM' : 
+                       `${i - 12}:00 PM`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Timezone
+                </label>
+                <select
+                  value={scheduleData.timezone}
+                  onChange={(e) => handleInputChange('timezone', e.target.value)}
+                  disabled={!scheduleData.enabled}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                    !scheduleData.enabled ? 'bg-gray-100 text-gray-400' : ''
+                  }`}
+                >
+                  <option value="America/New_York">Eastern Time</option>
+                  <option value="America/Chicago">Central Time</option>
+                  <option value="America/Denver">Mountain Time</option>
+                  <option value="America/Los_Angeles">Pacific Time</option>
+                  <option value="UTC">UTC</option>
+                </select>
+              </div>
+            </div>
+
+            {scheduleData.enabled && (
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                <p className="text-sm text-blue-800">
+                  <strong>Scheduled:</strong> {scheduleData.day}s at {
+                    scheduleData.hour === 0 ? '12:00 AM' : 
+                    scheduleData.hour < 12 ? `${scheduleData.hour}:00 AM` : 
+                    scheduleData.hour === 12 ? '12:00 PM' : 
+                    `${scheduleData.hour - 12}:00 PM`
+                  } {scheduleData.timezone.split('/')[1]?.replace('_', ' ')} Time
+                </p>
+              </div>
+            )}
 
             <div className="pt-4 border-t">
               <div className="flex gap-3">
@@ -453,10 +516,11 @@ export default function AdminPage() {
                 <div>
                   <h4 className="text-sm font-medium text-yellow-800">Important Notes</h4>
                   <ul className="mt-1 text-sm text-yellow-700 space-y-1">
-                    <li>• Check-ins are sent automatically at {adminConfig?.checkInTime?.hour || 10}:00 {adminConfig?.checkInTime?.timezone?.split('/')[1]?.replace('_', ' ') || 'Eastern'} Time</li>
-                    <li>• Check-ins will be sent to all goal owners on the selected day</li>
-                    <li>• The manual "Send Manual Check-In" button will still work regardless of this setting</li>
-                    <li>• Changes take effect immediately after saving</li>
+                    <li>• Settings are saved to your browser session temporarily</li>
+                    <li>• For persistence across deployments, update environment variables in Vercel</li>
+                    <li>• Check-ins will be sent to all goal owners at the scheduled time</li>
+                    <li>• The manual "Send Manual Check-In" button works regardless of this setting</li>
+                    <li>• The system checks every hour whether it's time to send check-ins</li>
                   </ul>
                 </div>
               </div>
@@ -477,7 +541,7 @@ export default function AdminPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
                   <div>
-                    <span className="text-sm font-medium text-gray-500">Current Time (Eastern):</span>
+                    <span className="text-sm font-medium text-gray-500">Current Time ({statusData.currentStatus.timeZone}):</span>
                     <div className="text-lg text-gray-900">{statusData.currentStatus.currentTime} on {statusData.currentStatus.currentDay}</div>
                   </div>
                   

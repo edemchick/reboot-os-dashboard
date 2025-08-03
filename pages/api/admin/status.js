@@ -26,18 +26,15 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
     }
 
-    const schedule = getCurrentSchedule();
-    const adminConfig = getAdminConfig();
+    const schedule = await getCurrentSchedule();
     const now = new Date();
-    const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+    const localTime = new Date(now.toLocaleString("en-US", {timeZone: schedule.timezone}));
     
-    const currentDay = easternTime.toLocaleDateString('en-US', { weekday: 'long' });
-    const currentTime = easternTime.toTimeString().slice(0, 5);
-    const currentDate = easternTime.toLocaleDateString('en-US');
+    const currentDay = localTime.toLocaleDateString('en-US', { weekday: 'long' });
+    const currentTime = localTime.toTimeString().slice(0, 5);
+    const currentDate = localTime.toLocaleDateString('en-US');
 
-    // Use configured time from admin config
-    const configuredHour = adminConfig.checkInTime?.hour || 10;
-    const configuredTime = `${configuredHour.toString().padStart(2, '0')}:00`;
+    const configuredTime = `${schedule.hour.toString().padStart(2, '0')}:00`;
 
     return res.status(200).json({
       schedule,
@@ -45,13 +42,13 @@ export default async function handler(req, res) {
         currentDay,
         currentTime,
         currentDate,
-        timeZone: 'America/New_York (Eastern)',
+        timeZone: `${schedule.timezone.split('/')[1]?.replace('_', ' ')} Time`,
         isScheduledDay: currentDay === schedule.day,
-        nextScheduledDate: getNextScheduledDate(schedule.day, configuredTime, adminConfig.checkInTime?.timezone)
+        nextScheduledDate: getNextScheduledDate(schedule.day, configuredTime, schedule.timezone)
       },
       systemInfo: {
         serverTime: now.toISOString(),
-        easternTime: easternTime.toISOString()
+        configuredTime: localTime.toISOString()
       }
     });
 
@@ -63,18 +60,17 @@ export default async function handler(req, res) {
 
 // Helper function to calculate next scheduled date
 function getNextScheduledDate(scheduledDay, scheduledTime, timezone = 'America/New_York') {
-  // Ultra-simple approach: just build the string directly
   const now = new Date();
   
-  // Get current day of week in Eastern time
-  const currentDayInEastern = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
+  // Get current day of week in the configured timezone
+  const currentDayInTimezone = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
     weekday: 'long'
   }).format(now);
   
   const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const targetDayIndex = daysOfWeek.indexOf(scheduledDay);
-  const currentDayIndex = daysOfWeek.indexOf(currentDayInEastern);
+  const currentDayIndex = daysOfWeek.indexOf(currentDayInTimezone);
   
   let daysUntilTarget = targetDayIndex - currentDayIndex;
   if (daysUntilTarget <= 0) {
@@ -87,7 +83,7 @@ function getNextScheduledDate(scheduledDay, scheduledTime, timezone = 'America/N
   
   // Format the date part
   const dateFormatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
+    timeZone: timezone,
     weekday: 'long',
     year: 'numeric',
     month: 'long',
