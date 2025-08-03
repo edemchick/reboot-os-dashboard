@@ -52,7 +52,7 @@ async function processSlackInteraction(req) {
       
       if (action.action_id === 'start_checkin') {
         const goalData = JSON.parse(action.value);
-        console.log('Opening modal for goal:', goalData.goalTitle);
+        console.log('📅 Opening checkin modal for:', goalData.goalTitle, 'Quarter:', goalData.quarter);
         
         // Open a modal for the check-in form
         const result = await slack.views.open({
@@ -62,7 +62,7 @@ async function processSlackInteraction(req) {
         console.log('Modal opened successfully:', result.ok);
       } else if (action.action_id === 'submit_goal_approval') {
         const goalData = JSON.parse(action.value);
-        console.log('Opening goal approval modal for goal:', goalData.goalTitle);
+        console.log('🎯 Opening goal approval modal for:', goalData.goalTitle, 'Quarter:', goalData.quarter);
         
         // Open a modal for goal approval (separate from check-in)
         const result = await slack.views.open({
@@ -75,7 +75,7 @@ async function processSlackInteraction(req) {
         await handleGradeGoals(slack, payload);
       } else if (action.action_id === 'confirm_submission') {
         const data = JSON.parse(action.value);
-        console.log('Confirming submission for goal:', data.goalData.goalTitle);
+        console.log('✅ Confirming submission for:', data.goalData.goalTitle, 'Quarter:', data.goalData.quarter);
         
         // Close the modal first
         await slack.views.update({
@@ -110,21 +110,21 @@ async function processSlackInteraction(req) {
         console.log('Final goal submission processed');
       } else if (action.action_id === 'grade_before_submit') {
         const data = JSON.parse(action.value);
-        console.log('Grading before submit for goal:', data.goalData.goalTitle);
+        console.log('🎓 Grading before submit for:', data.goalData.goalTitle, 'Quarter:', data.goalData.quarter);
         
         // Grade the KRs and show feedback, then allow editing or submitting
         await handleGradeBeforeSubmit(slack, payload, data);
         console.log('Grade before submit processed');
       } else if (action.action_id === 'approve_goal') {
         const data = JSON.parse(action.value);
-        console.log('Manager approving goal:', data.goalTitle);
+        console.log('✅ Manager approving goal:', data.goalTitle, 'Quarter:', data.quarter);
         
         // Handle goal approval by manager
         await handleManagerApproval(slack, payload, data);
         console.log('Manager approval processed');
       } else if (action.action_id === 'request_changes') {
         const data = JSON.parse(action.value);
-        console.log('Manager requesting changes for goal:', data.goalTitle);
+        console.log('📝 Manager requesting changes for goal:', data.goalTitle, 'Quarter:', data.quarter);
         
         // Open feedback modal for manager
         const result = await slack.views.open({
@@ -144,7 +144,8 @@ async function processSlackInteraction(req) {
           const values = payload.view.state.values;
           const user = payload.user;
           
-          console.log('Goal approval modal submitted with goalData:', JSON.stringify(goalData, null, 2));
+          console.log('🎯 Goal approval modal submitted with goalData:', JSON.stringify(goalData, null, 2));
+      console.log('📅 Quarter from goalData:', goalData.quarter);
           
           // Extract the KRs they submitted
           const submittedKRs = [];
@@ -179,7 +180,7 @@ async function processSlackInteraction(req) {
                   },
                   {
                     type: "mrkdwn",
-                    text: `*Quarter:*\n${goalData.quarter || 'Current Quarter'}`
+                    text: `*Quarter:*\n${goalData.quarter} (Planning ahead)`
                   }
                 ]
               },
@@ -196,7 +197,7 @@ async function processSlackInteraction(req) {
           // Send confirmation DM to user
           await slack.chat.postMessage({
             channel: user.id,
-            text: `✅ Your goal approval request for "${goalData.goalTitle}" has been submitted to the team channel for review.`
+            text: `✅ Your ${goalData.quarter} goal approval request for "${goalData.goalTitle}" has been submitted to the team channel for review.`
           });
           
           // Return empty response to close modal
@@ -280,13 +281,13 @@ export default async function handler(req, res) {
         // Send to channel
         await slack.chat.postMessage({
           channel: channelId,
-          text: `Goal approval request from ${user.real_name || user.name}`,
+          text: `${goalData.quarter} Goal approval request from ${user.real_name || user.name}`,
           blocks: [
             {
               type: "section",
               text: {
                 type: "mrkdwn", 
-                text: `*🎯 Goal Approval Request from <@${user.id}>*\n\n*Goal:* ${goalData.goalTitle}\n\n*📋 Proposed Key Results:*\n${krText}`
+                text: `*🎯 ${goalData.quarter} Goal Approval Request from <@${user.id}>*\n\n*Goal:* ${goalData.goalTitle}\n*Quarter:* ${goalData.quarter} (Planning ahead)\n\n*📋 Proposed Key Results:*\n${krText}`
               }
             },
             {
@@ -333,7 +334,7 @@ export default async function handler(req, res) {
         // Send DM confirmation
         await slack.chat.postMessage({
           channel: user.id,
-          text: `✅ Your goal "${goalData.goalTitle}" has been submitted for approval.`
+          text: `✅ Your ${goalData.quarter} goal "${goalData.goalTitle}" has been submitted for approval.`
         });
         
         return res.status(200).end();
@@ -367,7 +368,7 @@ export default async function handler(req, res) {
         });
         
         // Format the complete feedback message
-        let feedbackMessage = `🔄 *Manager Feedback for "${feedbackData.goalTitle}"*\n\n`;
+        let feedbackMessage = `🔄 *Manager Feedback for ${feedbackData.quarter} Goal "${feedbackData.goalTitle}"*\n\n`;
         feedbackMessage += `*From:* ${manager.real_name || manager.name}\n`;
         feedbackMessage += `*Priority:* ${priorityLevel === 'high' ? '🔴 High - Significant changes needed' : priorityLevel === 'medium' ? '🟡 Medium - Some revisions needed' : '🟢 Low - Minor tweaks suggested'}\n\n`;
         
@@ -390,7 +391,7 @@ export default async function handler(req, res) {
         // Send confirmation to manager
         await slack.chat.postMessage({
           channel: manager.id,
-          text: `✅ Your feedback for "${feedbackData.goalTitle}" has been sent to <@${feedbackData.userId}>.`
+          text: `✅ Your feedback for ${feedbackData.quarter} goal "${feedbackData.goalTitle}" has been sent to <@${feedbackData.userId}>.`
         });
         
         return res.status(200).end();
@@ -442,6 +443,8 @@ export default async function handler(req, res) {
 }
 
 function createCheckinModal(goalData) {
+  console.log('📅 Creating checkin modal for:', goalData.goalTitle, 'Quarter:', goalData.quarter);
+  
   return {
     type: "modal",
     callback_id: "goal_checkin",
@@ -546,6 +549,13 @@ function createCheckinModal(goalData) {
 }
 
 function createGoalApprovalModal(goalData) {
+  // Validate that quarter information is preserved
+  if (!goalData.quarter) {
+    console.warn('⚠️ Quarter missing in createGoalApprovalModal, goalData:', JSON.stringify(goalData, null, 2));
+  } else {
+    console.log('📅 Creating approval modal for:', goalData.goalTitle, 'Quarter:', goalData.quarter);
+  }
+  
   return {
     type: "modal",
     callback_id: "goal_approval",
@@ -570,7 +580,7 @@ function createGoalApprovalModal(goalData) {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `🎯 *${goalData.goalTitle}*
+          text: `🎯 *${goalData.goalTitle}* (${goalData.quarter})
 
 📋 *Key Results Best Practices*
 Write SMART Key Results that are:
@@ -883,8 +893,8 @@ async function handleFinalGoalSubmission(slack, payload, channelId, submittedKRs
   const goalData = JSON.parse(payload.view.private_metadata);
   const user = payload.user;
   
-  console.log('Final goal submission received for:', goalData.goalTitle);
-  console.log('Submitted by:', user.real_name || user.name);
+  console.log('🏁 Final goal submission received for:', goalData.goalTitle, 'Quarter:', goalData.quarter);
+  console.log('📤 Submitted by:', user.real_name || user.name);
   
   // Use the provided submitted KRs (already formatted)
   const keyResults = submittedKRs.map((kr, index) => `${index + 1}. ${kr}`);
@@ -947,15 +957,15 @@ async function handleFinalGoalSubmission(slack, payload, channelId, submittedKRs
   // Send confirmation DM to the user
   await slack.chat.postMessage({
     channel: user.id,
-    text: `✅ Your goal approval request for "${goalData.goalTitle}" has been submitted! Your Key Results have been posted to the team channel for review.`
+    text: `✅ Your ${goalData.quarter} goal approval request for "${goalData.goalTitle}" has been submitted! Your Key Results have been posted to the team channel for review.`
   });
   
   console.log('Goal approval submission handled successfully');
 }
 
 async function handleDirectGoalSubmission(slack, user, goalData, submittedKRs, channelId) {
-  console.log('Direct goal submission for:', goalData.goalTitle);
-  console.log('Submitted by:', user.real_name || user.name);
+  console.log('📫 Direct goal submission for:', goalData.goalTitle, 'Quarter:', goalData.quarter);
+  console.log('📤 Submitted by:', user.real_name || user.name);
   
   // Format the key results for posting
   const keyResults = submittedKRs.map((kr, index) => `${index + 1}. ${kr}`);
@@ -1016,7 +1026,7 @@ async function handleDirectGoalSubmission(slack, user, goalData, submittedKRs, c
   // Send confirmation DM to the user
   await slack.chat.postMessage({
     channel: user.id,
-    text: `✅ Your goal approval request for "${goalData.goalTitle}" has been submitted! Your Key Results have been posted to the team channel for review.`
+    text: `✅ Your ${goalData.quarter} goal approval request for "${goalData.goalTitle}" has been submitted! Your Key Results have been posted to the team channel for review.`
   });
   
   console.log('Direct goal submission handled successfully');
@@ -1032,7 +1042,8 @@ async function handleGradeBeforeSubmit(slack, payload, data) {
       text: kr
     }));
     
-    console.log('Grading KRs before submit:', keyResults);
+    console.log('🎓 Grading KRs before submit for:', goalData.goalTitle, 'Quarter:', goalData.quarter);
+    console.log('📝 Key Results to grade:', keyResults.length, 'items');
     
     // Grade the goals using OpenAI API
     const feedback = await gradeGoalsWithOpenAI(keyResults, goalData.goalTitle);
@@ -1082,7 +1093,7 @@ async function handleGradeGoals(slack, payload) {
       }
     }
     
-    console.log(`Grading ${keyResults.length} key results for goal: ${goalData.goalTitle}`);
+    console.log(`🎓 Grading ${keyResults.length} key results for ${goalData.quarter} goal: ${goalData.goalTitle}`);
     
     // Grade the goals using OpenAI API
     const feedback = await gradeGoalsWithOpenAI(keyResults, goalData.goalTitle);
@@ -1288,29 +1299,27 @@ async function handleManagerApproval(slack, payload, data) {
   
   try {
     
-    console.log('Processing manager approval for goal:', goalTitle, 'Quarter:', quarter);
-    console.log('Original goalId (might be temp-id):', goalId);
-    console.log('Full data object:', JSON.stringify(data, null, 2));
+    console.log('🎯 Processing manager approval for goal:', goalTitle, 'Quarter:', quarter);
+    console.log('🔍 Original goalId (might be temp-id):', goalId);
+    console.log('📊 Full data object:', JSON.stringify(data, null, 2));
     
-    // Fallback: if quarter is undefined, use current quarter
+    // Validate quarter is provided - this should not happen in normal workflow
     let actualQuarter = quarter;
     if (!actualQuarter) {
-      console.warn('Quarter is undefined, determining current quarter...');
-      const now = new Date();
-      const month = now.getMonth() + 1; // 1-12
-      const day = now.getDate();
+      console.error('🚨 CRITICAL: Quarter is undefined in manager approval workflow!');
+      console.error('🚨 This indicates a bug in the goal submission process');
+      console.error('🚨 Goal data:', JSON.stringify(data, null, 2));
       
-      if ((month === 1 && day >= 11) || (month >= 2 && month <= 4) || (month === 4 && day <= 10)) {
-        actualQuarter = 'Q1';
-      } else if ((month === 4 && day >= 11) || (month >= 5 && month <= 7) || (month === 7 && day <= 10)) {
-        actualQuarter = 'Q2';
-      } else if ((month === 7 && day >= 11) || (month >= 8 && month <= 10) || (month === 10 && day <= 10)) {
-        actualQuarter = 'Q3';
-      } else {
-        actualQuarter = 'Q4';
-      }
-      console.log('Determined current quarter as:', actualQuarter);
+      // Send error to manager immediately
+      await slack.chat.postMessage({
+        channel: manager.id,
+        text: `❌ Error: Unable to approve goal "${goalTitle}" - quarter information is missing. Please contact support.`
+      });
+      
+      throw new Error(`Quarter information missing for goal: ${goalTitle}. This should not happen - please check the goal submission workflow.`);
     }
+    
+    console.log('✅ Quarter validation passed:', actualQuarter);
     
     const notionToken = process.env.NOTION_TOKEN;
     const databaseId = process.env.NOTION_DATABASE_ID || '238ee4a677df80c18e68d094de3fd6d6';
@@ -1406,20 +1415,21 @@ async function handleManagerApproval(slack, payload, data) {
     // Send confirmation DM to goal owner
     await slack.chat.postMessage({
       channel: userId,
-      text: `🎉 Great news! Your goal "${goalTitle}" has been approved by ${manager.real_name || manager.name} and your Key Results have been saved to Notion.`
+      text: `🎉 Great news! Your ${actualQuarter} goal "${goalTitle}" has been approved by ${manager.real_name || manager.name} and your Key Results have been saved to Notion.`
     });
 
     console.log('Manager approval completed successfully');
   } catch (error) {
-    console.error('Error in handleManagerApproval:', error);
-    console.error('Error details:', error.message);
-    console.error('Error stack:', error.stack);
+    console.error('🚨 Error in handleManagerApproval:', error);
+    console.error('📋 Goal details - Title:', goalTitle, 'Quarter:', quarter);
+    console.error('❌ Error details:', error.message);
+    console.error('📚 Error stack:', error.stack);
     
-    // Send error message to manager
+    // Send error message to manager with quarter context
     try {
       await slack.chat.postMessage({
         channel: manager.id,
-        text: `❌ Error approving goal "${goalTitle}": ${error.message}`
+        text: `❌ Error approving ${quarter || 'unknown quarter'} goal "${goalTitle}": ${error.message}`
       });
     } catch (notificationError) {
       console.error('Failed to send error notification:', notificationError);
