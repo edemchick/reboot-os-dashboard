@@ -437,24 +437,39 @@ export default function AdminPage() {
             )}
 
             <div className="pt-4 border-t">
-              <div className="flex gap-3">
-                <button
-                  onClick={saveScheduleSettings}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <Save className="h-4 w-4" />
-                  {saving ? 'Saving...' : 'Save Settings'}
-                </button>
-                
-                <button
-                  onClick={sendManualCheckins}
-                  disabled={slackLoading}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  {slackLoading ? 'Sending...' : 'Send Manual Check-In'}
-                </button>
+              <div className="flex items-center justify-between">
+                <div className="flex gap-3">
+                  <button
+                    onClick={saveScheduleSettings}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Save className="h-4 w-4" />
+                    {saving ? 'Saving...' : 'Save Settings'}
+                  </button>
+                  
+                  <button
+                    onClick={sendManualCheckins}
+                    disabled={slackLoading}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    {slackLoading ? 'Sending...' : 'Send Manual Check-In'}
+                  </button>
+                </div>
+
+                {statusData && (
+                  <div className="text-sm">
+                    <span className="text-gray-600">Schedule Status: </span>
+                    <span className={`font-medium ${
+                      statusData.schedule.enabled 
+                        ? 'text-green-600' 
+                        : 'text-gray-500'
+                    }`}>
+                      {statusData.schedule.enabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -475,56 +490,6 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {statusData && (
-          <div className="bg-white rounded-lg shadow-sm border mt-6">
-            <div className="p-6 border-b">
-              <h2 className="text-lg font-semibold text-gray-900">Current Status</h2>
-              <p className="mt-1 text-sm text-gray-600">
-                Real-time information about the scheduled check-ins
-              </p>
-            </div>
-            
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Current Time ({statusData.currentStatus.timeZone}):</span>
-                    <div className="text-lg text-gray-900">{statusData.currentStatus.currentTime} on {statusData.currentStatus.currentDay}</div>
-                  </div>
-                  
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Schedule Status:</span>
-                    <div className={`text-lg font-medium ${
-                      statusData.schedule.enabled 
-                        ? 'text-green-600' 
-                        : 'text-gray-500'
-                    }`}>
-                      {statusData.schedule.enabled ? 'Enabled' : 'Disabled'}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Next Scheduled:</span>
-                    <div className="text-lg text-gray-900">{statusData.currentStatus.nextScheduledDate}</div>
-                  </div>
-                  
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">Is Today Scheduled Day:</span>
-                    <div className={`text-lg font-medium ${
-                      statusData.currentStatus.isScheduledDay 
-                        ? 'text-green-600' 
-                        : 'text-gray-500'
-                    }`}>
-                      {statusData.currentStatus.isScheduledDay ? 'Yes' : 'No'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {quarterlyConfig && (
           <div className="bg-white rounded-lg shadow-sm border mt-6">
