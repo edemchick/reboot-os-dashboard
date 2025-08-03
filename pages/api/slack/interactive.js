@@ -333,6 +333,55 @@ export default async function handler(req, res) {
         });
         
         return res.status(200).end();
+      } else if (payload.type === 'view_submission' && payload.view.callback_id === 'manager_feedback') {
+        const slackToken = process.env.SLACK_BOT_TOKEN;
+        const slack = new WebClient(slackToken);
+        
+        const feedbackData = JSON.parse(payload.view.private_metadata);
+        const values = payload.view.state.values;
+        const manager = payload.user;
+        
+        // Extract feedback from modal
+        const generalFeedback = values.general_feedback?.general_feedback_input?.value || '';
+        const priorityLevel = values.priority_level?.priority_level_select?.selected_option?.value || 'medium';
+        
+        // Extract individual KR feedback
+        const krFeedback = [];
+        feedbackData.submittedKRs.forEach((kr, index) => {
+          const feedback = values[`kr_${index + 1}_feedback`]?.[`kr_${index + 1}_feedback_input`]?.value || '';
+          if (feedback.trim()) {
+            krFeedback.push(`*KR ${index + 1}:* ${kr}\n*Feedback:* ${feedback}`);
+          }
+        });
+        
+        // Format the complete feedback message
+        let feedbackMessage = `🔄 *Manager Feedback for "${feedbackData.goalTitle}"*\n\n`;
+        feedbackMessage += `*From:* ${manager.real_name || manager.name}\n`;
+        feedbackMessage += `*Priority:* ${priorityLevel === 'high' ? '🔴 High - Significant changes needed' : priorityLevel === 'medium' ? '🟡 Medium - Some revisions needed' : '🟢 Low - Minor tweaks suggested'}\n\n`;
+        
+        if (generalFeedback) {
+          feedbackMessage += `*General Feedback:*\n${generalFeedback}\n\n`;
+        }
+        
+        if (krFeedback.length > 0) {
+          feedbackMessage += `*Key Results Feedback:*\n${krFeedback.join('\n\n')}\n\n`;
+        }
+        
+        feedbackMessage += `Please revise your Key Results and resubmit when ready. You can use the same goal submission process as before.`;
+        
+        // Send DM to goal owner
+        await slack.chat.postMessage({
+          channel: feedbackData.userId,
+          text: feedbackMessage
+        });
+        
+        // Send confirmation to manager
+        await slack.chat.postMessage({
+          channel: manager.id,
+          text: `✅ Your feedback for "${feedbackData.goalTitle}" has been sent to <@${feedbackData.userId}>.`
+        });
+        
+        return res.status(200).end();
       }
       
       // For other interactions, process normally
