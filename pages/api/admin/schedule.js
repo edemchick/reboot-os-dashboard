@@ -14,12 +14,10 @@ const notion = new Client({
   auth: process.env.NOTION_TOKEN,
 });
 
-// Default schedule settings
+// Default schedule settings  
 const defaultSchedule = {
   enabled: false,
-  day: 'Monday',
-  hour: 10,
-  timezone: 'America/New_York'
+  day: 'Monday'
 };
 
 // Read schedule settings from Notion
@@ -46,9 +44,7 @@ const readScheduleSettings = async () => {
 
     const settings = {
       enabled: properties.enabled?.checkbox ?? defaultSchedule.enabled,
-      day: properties.day?.select?.name ?? defaultSchedule.day,
-      hour: properties.hour?.number ?? defaultSchedule.hour,
-      timezone: properties.timezone?.select?.name ?? defaultSchedule.timezone
+      day: properties.day?.select?.name ?? defaultSchedule.day
     };
 
     console.log('Schedule settings loaded from Notion:', settings);
@@ -96,9 +92,7 @@ const writeScheduleSettings = async (settings) => {
       page_id: pageId,
       properties: {
         enabled: { checkbox: settings.enabled },
-        day: { select: { name: settings.day } },
-        hour: { number: settings.hour },
-        timezone: { select: { name: settings.timezone } }
+        day: { select: { name: settings.day } }
       }
     });
 
@@ -131,7 +125,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       // Update schedule settings
-      const { enabled, day, hour, timezone } = req.body;
+      const { enabled, day } = req.body;
 
       // Validate input
       const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -143,16 +137,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Enabled must be a boolean value' });
       }
 
-      if (typeof hour !== 'number' || hour < 0 || hour > 23) {
-        return res.status(400).json({ error: 'Hour must be a number between 0 and 23' });
-      }
-
-      const validTimezones = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'UTC'];
-      if (!validTimezones.includes(timezone)) {
-        return res.status(400).json({ error: 'Invalid timezone' });
-      }
-
-      const newSettings = { enabled, day, hour, timezone };
+      const newSettings = { enabled, day };
       
       if (await writeScheduleSettings(newSettings)) {
         return res.status(200).json({ 

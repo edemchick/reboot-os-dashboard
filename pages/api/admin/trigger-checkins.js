@@ -23,23 +23,23 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get current time in the configured timezone
+    // Get current time in Eastern timezone (hardcoded to 10am Eastern)
     const now = new Date();
-    const localTime = new Date(now.toLocaleString("en-US", {timeZone: schedule.timezone}));
+    const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
     
-    const currentDay = localTime.toLocaleDateString('en-US', { weekday: 'long' });
-    const currentHour = localTime.getHours();
-    const currentTime = `${currentHour.toString().padStart(2, '0')}:${localTime.getMinutes().toString().padStart(2, '0')}`;
+    const currentDay = easternTime.toLocaleDateString('en-US', { weekday: 'long' });
+    const currentHour = easternTime.getHours();
+    const currentTime = `${currentHour.toString().padStart(2, '0')}:${easternTime.getMinutes().toString().padStart(2, '0')}`;
     
-    // Check if it's the right day and configured time
+    // Check if it's the right day and 10am Eastern (when the cron runs)
     const isRightDay = currentDay === schedule.day;
-    const isScheduledTime = currentHour === schedule.hour;
+    const isScheduledTime = currentHour === 10; // Always 10am Eastern
     
     if (isRightDay && isScheduledTime) {
       console.log('Triggering scheduled check-ins:', {
         day: currentDay,
         time: currentTime,
-        scheduled: `${schedule.day} at ${schedule.hour}:00 ${schedule.timezone.split('/')[1]?.replace('_', ' ')}`
+        scheduled: `${schedule.day} at 10:00 AM Eastern`
       });
 
       // Make internal request to send check-ins
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
           message: 'Weekly check-ins sent successfully',
           sent: true,
           scheduledDay: schedule.day,
-          scheduledTime: `${schedule.hour}:00 ${schedule.timezone.split('/')[1]?.replace('_', ' ')}`,
+          scheduledTime: '10:00 AM Eastern',
           currentTime: currentTime,
           slackResponse: result
         });
@@ -68,10 +68,10 @@ export default async function handler(req, res) {
       }
     } else {
       return res.status(200).json({ 
-        message: `Not the right time. Current: ${currentDay} ${currentTime}, Scheduled: ${schedule.day} ${schedule.hour}:00 ${schedule.timezone.split('/')[1]?.replace('_', ' ')}`,
+        message: `Not the right time. Current: ${currentDay} ${currentTime}, Scheduled: ${schedule.day} 10:00 AM Eastern`,
         sent: false,
         scheduledDay: schedule.day,
-        scheduledTime: `${schedule.hour}:00 ${schedule.timezone.split('/')[1]?.replace('_', ' ')}`,
+        scheduledTime: '10:00 AM Eastern',
         currentDay: currentDay,
         currentTime: currentTime,
         isRightDay,

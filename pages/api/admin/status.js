@@ -28,13 +28,13 @@ export default async function handler(req, res) {
 
     const schedule = await getCurrentSchedule();
     const now = new Date();
-    const localTime = new Date(now.toLocaleString("en-US", {timeZone: schedule.timezone}));
+    const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
     
-    const currentDay = localTime.toLocaleDateString('en-US', { weekday: 'long' });
-    const currentTime = localTime.toTimeString().slice(0, 5);
-    const currentDate = localTime.toLocaleDateString('en-US');
+    const currentDay = easternTime.toLocaleDateString('en-US', { weekday: 'long' });
+    const currentTime = easternTime.toTimeString().slice(0, 5);
+    const currentDate = easternTime.toLocaleDateString('en-US');
 
-    const configuredTime = `${schedule.hour.toString().padStart(2, '0')}:00`;
+    const configuredTime = '10:00';
 
     return res.status(200).json({
       schedule,
@@ -42,13 +42,13 @@ export default async function handler(req, res) {
         currentDay,
         currentTime,
         currentDate,
-        timeZone: `${schedule.timezone.split('/')[1]?.replace('_', ' ')} Time`,
+        timeZone: 'Eastern Time',
         isScheduledDay: currentDay === schedule.day,
-        nextScheduledDate: getNextScheduledDate(schedule.day, configuredTime, schedule.timezone)
+        nextScheduledDate: getNextScheduledDate(schedule.day, configuredTime, 'America/New_York')
       },
       systemInfo: {
         serverTime: now.toISOString(),
-        configuredTime: localTime.toISOString()
+        easternTime: easternTime.toISOString()
       }
     });
 
