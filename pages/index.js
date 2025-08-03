@@ -890,7 +890,16 @@ export default function Dashboard() {
                               checked={goal.status === 'Carried Forward'}
                               onChange={(e) => {
                                 if (e.target.checked) {
+                                  // Update status in Notion first
                                   updateGoalStatus(goal.id, 'Carried Forward');
+                                  // Then show carry forward modal for DM
+                                  setSelectedGoalForCarryForward(goal);
+                                  setCarryForwardForm({
+                                    title: goal.title,
+                                    focus: goal.focus,
+                                    owner: goal.owner
+                                  });
+                                  setShowCarryForwardModal(true);
                                 }
                               }}
                             />
