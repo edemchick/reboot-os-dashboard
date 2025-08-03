@@ -115,6 +115,23 @@ async function processSlackInteraction(req) {
         // Grade the KRs and show feedback, then allow editing or submitting
         await handleGradeBeforeSubmit(slack, payload, data);
         console.log('Grade before submit processed');
+      } else if (action.action_id === 'approve_goal') {
+        const data = JSON.parse(action.value);
+        console.log('Manager approving goal:', data.goalTitle);
+        
+        // Handle goal approval by manager
+        await handleManagerApproval(slack, payload, data);
+        console.log('Manager approval processed');
+      } else if (action.action_id === 'request_changes') {
+        const data = JSON.parse(action.value);
+        console.log('Manager requesting changes for goal:', data.goalTitle);
+        
+        // Open feedback modal for manager
+        const result = await slack.views.open({
+          trigger_id: payload.trigger_id,
+          view: createFeedbackModal(data)
+        });
+        console.log('Feedback modal opened successfully:', result.ok);
       }
     } else if (payload.type === 'view_submission') {
       // Handle modal submission
@@ -262,13 +279,51 @@ export default async function handler(req, res) {
         await slack.chat.postMessage({
           channel: channelId,
           text: `Goal approval request from ${user.real_name || user.name}`,
-          blocks: [{
-            type: "section",
-            text: {
-              type: "mrkdwn", 
-              text: `*🎯 Goal Approval Request from <@${user.id}>*\n\n*Goal:* ${goalData.goalTitle}\n\n*📋 Proposed Key Results:*\n${krText}`
+          blocks: [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn", 
+                text: `*🎯 Goal Approval Request from <@${user.id}>*\n\n*Goal:* ${goalData.goalTitle}\n\n*📋 Proposed Key Results:*\n${krText}`
+              }
+            },
+            {
+              type: "actions",
+              elements: [
+                {
+                  type: "button",
+                  text: {
+                    type: "plain_text",
+                    text: "✅ Approve & Save to Notion",
+                    emoji: true
+                  },
+                  action_id: "approve_goal",
+                  style: "primary",
+                  value: JSON.stringify({
+                    goalId: goalData.goalId,
+                    goalTitle: goalData.goalTitle,
+                    submittedKRs: submittedKRs,
+                    userId: user.id
+                  })
+                },
+                {
+                  type: "button",
+                  text: {
+                    type: "plain_text",
+                    text: "📝 Request Changes",
+                    emoji: true
+                  },
+                  action_id: "request_changes",
+                  value: JSON.stringify({
+                    goalId: goalData.goalId,
+                    goalTitle: goalData.goalTitle,
+                    submittedKRs: submittedKRs,
+                    userId: user.id
+                  })
+                }
+              ]
             }
-          }]
+          ]
         });
         
         // Send DM confirmation
@@ -1136,6 +1191,177 @@ Write SMART Key Results that are:
       emoji: true
     },
     blocks: blocks
+  };
+}
+
+async function handleManagerApproval(slack, payload, data) {
+  try {
+    const { goalId, goalTitle, submittedKRs, userId } = data;
+    const manager = payload.user;
+    
+    console.log('Processing manager approval for goal:', goalTitle);
+    
+    // Save approved KRs to Notion's "Open KRs" column
+    const notionToken = process.env.NOTION_TOKEN;
+    const krText = submittedKRs.join('\n');
+    
+    const response = await fetch(`https://api.notion.com/v1/pages/${goalId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${notionToken}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28'
+      },
+      body: JSON.stringify({
+        properties: {
+          'Open KRs': {
+            rich_text: [{ text: { content: krText } }]
+          }
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to update Notion: ${response.status}`);
+    }
+
+    // Update the original message to show it's been approved
+    await slack.chat.update({
+      channel: payload.channel.id,
+      ts: payload.message.ts,
+      text: `Goal approved by ${manager.real_name || manager.name}`,
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `✅ *Goal Approved by <@${manager.id}>*\n\n*Goal:* ${goalTitle}\n\n*📋 Approved Key Results:*\n${submittedKRs.map((kr, index) => `${index + 1}. ${kr}`).join('\n')}`
+          }
+        }
+      ]
+    });
+
+    // Send confirmation DM to goal owner
+    await slack.chat.postMessage({
+      channel: userId,
+      text: `🎉 Great news! Your goal "${goalTitle}" has been approved by ${manager.real_name || manager.name} and your Key Results have been saved to Notion.`
+    });
+
+    console.log('Manager approval completed successfully');
+  } catch (error) {
+    console.error('Error in handleManagerApproval:', error);
+    throw error;
+  }
+}
+
+function createFeedbackModal(data) {
+  const { goalTitle, submittedKRs } = data;
+  
+  return {
+    type: "modal",
+    callback_id: "manager_feedback",
+    private_metadata: JSON.stringify(data),
+    title: {
+      type: "plain_text",
+      text: "Request Changes",
+      emoji: true
+    },
+    submit: {
+      type: "plain_text",
+      text: "Send Feedback",
+      emoji: true
+    },
+    close: {
+      type: "plain_text",
+      text: "Cancel",
+      emoji: true
+    },
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `🎯 *${goalTitle}*\n\nProvide feedback on the proposed Key Results:`
+        }
+      },
+      {
+        type: "input",
+        block_id: "overall_feedback",
+        element: {
+          type: "plain_text_input",
+          action_id: "overall_feedback_input",
+          multiline: true,
+          placeholder: {
+            type: "plain_text",
+            text: "Overall feedback on the goal and Key Results..."
+          }
+        },
+        label: {
+          type: "plain_text",
+          text: "Overall Feedback",
+          emoji: true
+        }
+      },
+      ...submittedKRs.map((kr, index) => ({
+        type: "input",
+        block_id: `kr_feedback_${index}`,
+        element: {
+          type: "plain_text_input",
+          action_id: `kr_feedback_input_${index}`,
+          multiline: true,
+          placeholder: {
+            type: "plain_text",
+            text: "Specific feedback for this Key Result..."
+          }
+        },
+        label: {
+          type: "plain_text",
+          text: `Feedback for KR ${index + 1}: "${kr.substring(0, 50)}${kr.length > 50 ? '...' : ''}"`,
+          emoji: true
+        },
+        optional: true
+      })),
+      {
+        type: "input",
+        block_id: "priority_level",
+        element: {
+          type: "static_select",
+          action_id: "priority_level_select",
+          placeholder: {
+            type: "plain_text",
+            text: "Select priority level"
+          },
+          options: [
+            {
+              text: {
+                type: "plain_text",
+                text: "🔴 High - Major changes needed"
+              },
+              value: "high"
+            },
+            {
+              text: {
+                type: "plain_text",
+                text: "🟡 Medium - Some improvements needed"
+              },
+              value: "medium"
+            },
+            {
+              text: {
+                type: "plain_text",
+                text: "🟢 Low - Minor tweaks suggested"
+              },
+              value: "low"
+            }
+          ]
+        },
+        label: {
+          type: "plain_text",
+          text: "Priority Level",
+          emoji: true
+        }
+      }
+    ]
   };
 }
 
