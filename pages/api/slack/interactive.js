@@ -486,6 +486,19 @@ export default async function handler(req, res) {
 
 }
 
+// Helper function to convert HTML links to Slack markdown format
+function convertHtmlToSlackMarkdown(htmlText) {
+  if (!htmlText) return '';
+  
+  // Convert HTML links to Slack markdown format
+  // From: <a href="https://example.com" target="_blank" rel="noopener noreferrer" class="...">Link Text</a>
+  // To: <https://example.com|Link Text>
+  return htmlText.replace(
+    /<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g, 
+    '<$1|$2>'
+  );
+}
+
 function createCheckinModal(goalData) {
   console.log('📅 Creating checkin modal for:', goalData.goalTitle, 'Quarter:', goalData.quarter);
   
@@ -520,14 +533,14 @@ function createCheckinModal(goalData) {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `📋 *Open Key Results:*\n${goalData.keyResults}`
+          text: `📋 *Open Key Results:*\n${convertHtmlToSlackMarkdown(goalData.keyResults)}`
         }
       }] : []),
       ...(goalData.completedKRs ? [{
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `✅ *Completed Key Results:*\n${goalData.completedKRs}`
+          text: `✅ *Completed Key Results:*\n${convertHtmlToSlackMarkdown(goalData.completedKRs)}`
         }
       }] : []),
       ...(goalData.keyResults || goalData.completedKRs ? [{
