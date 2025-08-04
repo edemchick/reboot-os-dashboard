@@ -604,8 +604,7 @@ function createCheckinModal(goalData) {
           type: "plain_text",
           text: "5️⃣ What are we focusing on next week?",
           emoji: true
-        },
-        optional: true
+        }
       }
     ]
   };
@@ -929,7 +928,7 @@ async function handleCheckinSubmission(slack, payload, channelId) {
           'Latest Update - Completed KRs': {
             rich_text: [{ text: { content: completedKRs } }]
           },
-          'Latest Update - Next Week Focus': {
+          'Latest Update - Next Week': {
             rich_text: [{ text: { content: nextWeekFocus } }]
           }
         }
