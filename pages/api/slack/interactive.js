@@ -352,6 +352,32 @@ export default async function handler(req, res) {
         });
         
         return res.status(200).end();
+      } else if (payload.type === 'view_submission' && payload.view.callback_id === 'partner_update') {
+        console.log('🤝 Processing partner update submission...');
+        const slackToken = process.env.SLACK_BOT_TOKEN;
+        const slack = new WebClient(slackToken);
+        
+        const partnerData = JSON.parse(payload.view.private_metadata);
+        const values = payload.view.state.values;
+        const user = payload.user;
+        
+        // Extract form responses
+        const healthScore = parseInt(values.health_score.health_score_select.selected_option.value);
+        const keyUpdates = values.key_updates.key_updates_input.value;
+        const actionItems = values.action_items.action_items_input.value || '';
+        
+        console.log('🤝 Partner update data:', {
+          partner: partnerData.partnerName,
+          healthScore,
+          keyUpdates,
+          actionItems
+        });
+        
+        // Save to Notion asynchronously
+        handlePartnerUpdateSubmission(slack, payload);
+        
+        // Return immediately to Slack
+        return res.status(200).end();
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'manager_feedback') {
         console.log('🔄 Processing manager feedback submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
@@ -1591,7 +1617,7 @@ function createPartnerUpdateModal(partnerData) {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `🤝 *${partnerData.partnerName}*\nCurrent Health Score: ${partnerData.currentHealthScore}/10`
+          text: `🤝 *${partnerData.partnerName}*\nPrevious Health Score: ${partnerData.currentHealthScore}/10`
         }
       },
       {
@@ -1709,6 +1735,9 @@ async function handlePartnerUpdateSubmission(slack, payload) {
           },
           'Health Score': {
             number: healthScore
+          },
+          'Previous Health Score': {
+            number: partnerData.currentHealthScore
           },
           'Key Updates': {
             rich_text: [{ text: { content: keyUpdates } }]
