@@ -57,20 +57,28 @@ export default async function handler(req, res) {
     const partners = data.results.map(page => {
       const properties = page.properties;
       
-      // Extract health score from rollup array
-      const healthScoreRollup = properties['Current Health Score']?.rollup;
+      // Extract health score from formula or rollup
+      const healthScoreProperty = properties['Current Health Score'];
       let currentHealthScore = 0;
-      if (healthScoreRollup?.type === 'array' && healthScoreRollup.array?.length > 0) {
-        currentHealthScore = healthScoreRollup.array[0]?.number || 0;
-      } else if (healthScoreRollup?.number) {
-        currentHealthScore = healthScoreRollup.number;
+      if (healthScoreProperty?.formula?.number !== undefined) {
+        // Handle Formula -> Number
+        currentHealthScore = healthScoreProperty.formula.number;
+      } else if (healthScoreProperty?.rollup?.type === 'array' && healthScoreProperty.rollup.array?.length > 0) {
+        // Handle Rollup -> Number (legacy support)
+        currentHealthScore = healthScoreProperty.rollup.array[0]?.number || 0;
+      } else if (healthScoreProperty?.rollup?.number) {
+        currentHealthScore = healthScoreProperty.rollup.number;
       }
 
-      // Extract trend from rollup array 
-      const trendRollup = properties['Trend']?.rollup;
+      // Extract trend from formula or rollup
+      const trendProperty = properties['Trend'];
       let trend = '→';
-      if (trendRollup?.type === 'array' && trendRollup.array?.length > 0) {
-        const trendItem = trendRollup.array[0];
+      if (trendProperty?.formula?.string) {
+        // Handle Formula -> String
+        trend = trendProperty.formula.string;
+      } else if (trendProperty?.rollup?.type === 'array' && trendProperty.rollup.array?.length > 0) {
+        // Handle Rollup (legacy support)
+        const trendItem = trendProperty.rollup.array[0];
         if (trendItem?.type === 'formula' && trendItem.formula?.string) {
           trend = trendItem.formula.string;
         } else if (trendItem?.rich_text?.[0]?.text?.content) {
@@ -88,21 +96,29 @@ export default async function handler(req, res) {
         }
       }
       
-      // Extract key updates from rollup array
-      const keyUpdatesRollup = properties['Key Updates']?.rollup;
+      // Extract key updates from formula or rollup
+      const keyUpdatesProperty = properties['Key Updates'];
       let keyUpdates = '';
-      if (keyUpdatesRollup?.type === 'array' && keyUpdatesRollup.array?.length > 0) {
-        const updatesItem = keyUpdatesRollup.array[0];
+      if (keyUpdatesProperty?.formula?.string) {
+        // Handle Formula -> String
+        keyUpdates = keyUpdatesProperty.formula.string;
+      } else if (keyUpdatesProperty?.rollup?.type === 'array' && keyUpdatesProperty.rollup.array?.length > 0) {
+        // Handle Rollup (legacy support)
+        const updatesItem = keyUpdatesProperty.rollup.array[0];
         if (updatesItem?.type === 'rich_text' && updatesItem.rich_text?.length > 0) {
           keyUpdates = updatesItem.rich_text.map(rt => rt.text?.content || '').join('');
         }
       }
       
-      // Extract action items from rollup array
-      const actionItemsRollup = properties['Action Items']?.rollup;
+      // Extract action items from formula or rollup
+      const actionItemsProperty = properties['Action Items'];
       let actionItems = '';
-      if (actionItemsRollup?.type === 'array' && actionItemsRollup.array?.length > 0) {
-        const actionsItem = actionItemsRollup.array[0];
+      if (actionItemsProperty?.formula?.string) {
+        // Handle Formula -> String
+        actionItems = actionItemsProperty.formula.string;
+      } else if (actionItemsProperty?.rollup?.type === 'array' && actionItemsProperty.rollup.array?.length > 0) {
+        // Handle Rollup (legacy support)
+        const actionsItem = actionItemsProperty.rollup.array[0];
         if (actionsItem?.type === 'rich_text' && actionsItem.rich_text?.length > 0) {
           actionItems = actionsItem.rich_text.map(rt => rt.text?.content || '').join('');
         }
