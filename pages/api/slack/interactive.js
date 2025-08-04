@@ -1750,7 +1750,7 @@ async function handlePartnerUpdateSubmission(slack, payload) {
           rich_text: [{ text: { content: actionItems } }]
         },
         'Submitted By': {
-          people: [{ id: user.id }]
+          people: [{ id: '46ee46c2-f482-48a5-8078-95cfc93815a1' }]
         }
       }
     };
