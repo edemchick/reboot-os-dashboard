@@ -862,7 +862,14 @@ export default function Dashboard() {
                             <span>Owner: {goal.owner}</span>
                             <span className="flex items-center gap-1">
                               <Clock className="h-4 w-4" />
-                              Updated: {goal.latestUpdateDate ? new Date(goal.latestUpdateDate).toLocaleDateString() : new Date(goal.lastUpdated).toLocaleDateString()}
+                              Updated: {(() => {
+                                if (goal.latestUpdateDate) {
+                                  const [year, month, day] = goal.latestUpdateDate.split('-');
+                                  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString();
+                                } else {
+                                  return new Date(goal.lastUpdated).toLocaleDateString();
+                                }
+                              })()}
                             </span>
                           </div>
                         </div>
@@ -916,11 +923,15 @@ export default function Dashboard() {
                                     expandedUpdates[goal.id] ? 'rotate-180' : ''
                                   }`} 
                                 />
-                                {new Date(goal.latestUpdateDate).toLocaleDateString('en-US', { 
-                                  month: 'short', 
-                                  day: 'numeric',
-                                  year: new Date(goal.latestUpdateDate).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
-                                })} Update
+                                {(() => {
+                                  const [year, month, day] = goal.latestUpdateDate.split('-');
+                                  const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                                  return date.toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric',
+                                    year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                                  });
+                                })()} Update
                               </button>
                               
                               {expandedUpdates[goal.id] && (
