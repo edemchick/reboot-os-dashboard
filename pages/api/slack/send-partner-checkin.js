@@ -15,12 +15,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Map main contact to Slack user ID (you'll need to update these with actual Slack user IDs)
-    const slackUserMapping = {
-      'Evan Demchick': 'U123EXAMPLE', // Replace with actual Slack user ID
-      // Add other main contacts and their Slack user IDs here
-    };
-
     // Skip partners with no main contact or unassigned contacts
     if (!partner.mainContact || partner.mainContact === 'Unassigned' || partner.mainContact.trim() === '') {
       console.log(`Skipping partner ${partner.partnerName} - no main contact assigned`);
@@ -30,11 +24,15 @@ export default async function handler(req, res) {
       });
     }
 
-    const slackUserId = slackUserMapping[partner.mainContact];
+    // Use dynamic Slack user lookup (same as weekly goals check-in)
+    const { WebClient } = require('@slack/web-api');
+    const slack = new WebClient(slackBotToken);
+    const slackUserId = await lookupSlackUserId(partner.mainContact, slack);
+    
     if (!slackUserId) {
-      console.error(`No Slack user ID found for main contact: ${partner.mainContact}`);
+      console.error(`No Slack user found for main contact: ${partner.mainContact}`);
       return res.status(400).json({ 
-        error: `No Slack user ID configured for main contact: ${partner.mainContact}` 
+        error: `No Slack user found for main contact: ${partner.mainContact}` 
       });
     }
 
@@ -137,5 +135,24 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Error sending partner check-in:', error);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+async function lookupSlackUserId(ownerName, slack) {
+  try {
+    const result = await slack.users.list();
+    
+    const user = result.members.find(member => 
+      member.real_name === ownerName || 
+      member.display_name === ownerName ||
+      member.profile?.display_name === ownerName ||
+      member.name === ownerName.toLowerCase().replace(/\s+/g, '') ||
+      member.profile?.real_name === ownerName
+    );
+    
+    return user?.id || null;
+  } catch (error) {
+    console.error('Error looking up user:', error);
+    return null;
   }
 }
