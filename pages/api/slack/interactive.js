@@ -220,11 +220,8 @@ async function processSlackInteraction(req) {
           await handlePartnerUpdateSubmission(slack, payload);
           console.log('Partner update submission handled successfully');
         } else {
-          // Handle regular check-in submission
-          await handleCheckinSubmission(slack, payload, channelId);
-          console.log('Check-in submission handled successfully');
-          // Return empty response to close modal (like goal_approval does)
-          return;
+          // Other view submissions - should not happen as they're handled directly in main handler
+          console.log('Unhandled view submission callback_id:', payload.view.callback_id);
         }
       } catch (error) {
         console.error('Error handling submission:', error);
@@ -352,6 +349,17 @@ export default async function handler(req, res) {
           channel: user.id,
           text: `✅ Your ${goalData.quarter} goal "${goalData.goalTitle}" has been submitted for approval.`
         });
+        
+        return res.status(200).end();
+      } else if (payload.type === 'view_submission' && payload.view.callback_id === 'goal_checkin') {
+        console.log('📅 Processing check-in submission...');
+        const slackToken = process.env.SLACK_BOT_TOKEN;
+        const channelId = process.env.SLACK_CHANNEL_ID;
+        const slack = new WebClient(slackToken);
+        
+        // Handle check-in submission
+        await handleCheckinSubmission(slack, payload, channelId);
+        console.log('Check-in submission handled successfully');
         
         return res.status(200).end();
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'partner_update') {
