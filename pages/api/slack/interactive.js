@@ -1757,6 +1757,9 @@ async function handlePartnerUpdateSubmission(slack, payload) {
     
     console.log('📝 Request body:', JSON.stringify(requestBody, null, 2));
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
     const response = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
       headers: {
@@ -1764,8 +1767,11 @@ async function handlePartnerUpdateSubmission(slack, payload) {
         'Content-Type': 'application/json',
         'Notion-Version': '2022-06-28'
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(requestBody),
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
     
     console.log('📡 Notion API response status:', response.status);
     
