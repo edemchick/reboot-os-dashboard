@@ -1724,6 +1724,39 @@ async function handlePartnerUpdateSubmission(slack, payload) {
       throw new Error('Partner updates database not configured');
     }
     
+    console.log('🔄 Making Notion API call...');
+    
+    const requestBody = {
+      parent: { database_id: updatesDbId },
+      properties: {
+        'Partner': {
+          relation: [{ id: partnerData.partnerId }]
+        },
+        'Update Date': {
+          date: {
+            start: new Date().toISOString().split('T')[0]
+          }
+        },
+        'Health Score': {
+          number: healthScore
+        },
+        'Previous Health Score': {
+          number: partnerData.currentHealthScore
+        },
+        'Key Updates': {
+          rich_text: [{ text: { content: keyUpdates } }]
+        },
+        'Action Items': {
+          rich_text: [{ text: { content: actionItems } }]
+        },
+        'Submitted By': {
+          rich_text: [{ text: { content: user.real_name || user.name } }]
+        }
+      }
+    };
+    
+    console.log('📝 Request body:', JSON.stringify(requestBody, null, 2));
+    
     const response = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
       headers: {
@@ -1731,35 +1764,10 @@ async function handlePartnerUpdateSubmission(slack, payload) {
         'Content-Type': 'application/json',
         'Notion-Version': '2022-06-28'
       },
-      body: JSON.stringify({
-        parent: { database_id: updatesDbId },
-        properties: {
-          'Partner': {
-            relation: [{ id: partnerData.partnerId }]
-          },
-          'Update Date': {
-            date: {
-              start: new Date().toISOString().split('T')[0]
-            }
-          },
-          'Health Score': {
-            number: healthScore
-          },
-          'Previous Health Score': {
-            number: partnerData.currentHealthScore
-          },
-          'Key Updates': {
-            rich_text: [{ text: { content: keyUpdates } }]
-          },
-          'Action Items': {
-            rich_text: [{ text: { content: actionItems } }]
-          },
-          'Submitted By': {
-            rich_text: [{ text: { content: user.real_name || user.name } }]
-          }
-        }
-      })
+      body: JSON.stringify(requestBody)
     });
+    
+    console.log('📡 Notion API response status:', response.status);
     
     if (!response.ok) {
       const errorData = await response.text();
