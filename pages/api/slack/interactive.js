@@ -1757,21 +1757,49 @@ async function handlePartnerUpdateSubmission(slack, payload) {
     
     console.log('📝 Request body:', JSON.stringify(requestBody, null, 2));
     
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    // Retry logic for network errors
+    let response;
+    let attempt = 0;
+    const maxAttempts = 3;
     
-    const response = await fetch('https://api.notion.com/v1/pages', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${notionToken}`,
-        'Content-Type': 'application/json',
-        'Notion-Version': '2022-06-28'
-      },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
+    while (attempt < maxAttempts) {
+      try {
+        attempt++;
+        console.log(`🔄 Attempt ${attempt}/${maxAttempts}...`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
+        response = await fetch('https://api.notion.com/v1/pages', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${notionToken}`,
+            'Content-Type': 'application/json',
+            'Notion-Version': '2022-06-28'
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        console.log(`📡 Attempt ${attempt} response status:`, response.status);
+        
+        // If successful, break out of retry loop
+        break;
+        
+      } catch (error) {
+        console.error(`❌ Attempt ${attempt} failed:`, error.message);
+        
+        if (attempt === maxAttempts) {
+          throw error; // Re-throw on final attempt
+        }
+        
+        // Wait before retrying (exponential backoff)
+        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+        console.log(`⏳ Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
     
     console.log('📡 Notion API response status:', response.status);
     
