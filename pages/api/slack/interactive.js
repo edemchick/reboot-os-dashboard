@@ -1728,7 +1728,7 @@ async function handlePartnerUpdateSubmission(slack, payload) {
           'Partner': {
             relation: [{ id: partnerData.partnerId }]
           },
-          'Date': {
+          'Update Date': {
             date: {
               start: new Date().toISOString().split('T')[0]
             }
