@@ -220,9 +220,19 @@ async function processSlackInteraction(req) {
           await handlePartnerUpdateSubmission(slack, payload);
           console.log('Partner update submission handled successfully');
         } else {
-          // Handle regular check-in submission
-          await handleCheckinSubmission(slack, payload, channelId);
-          console.log('Check-in submission handled successfully');
+          // Handle regular check-in submission asynchronously
+          console.log('🤝 Processing check-in submission...');
+          const slackToken = process.env.SLACK_BOT_TOKEN;
+          const channelId = process.env.SLACK_CHANNEL_ID;
+          const slack = new WebClient(slackToken);
+          
+          // Process submission asynchronously - don't await to return quickly to Slack
+          handleCheckinSubmission(slack, payload, channelId).catch(error => {
+            console.error('Error in async check-in submission:', error);
+          });
+          
+          // Return immediately to Slack
+          return res.status(200).end();
         }
       } catch (error) {
         console.error('Error handling submission:', error);
