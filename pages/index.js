@@ -862,7 +862,7 @@ export default function Dashboard() {
                             <span>Owner: {goal.owner}</span>
                             <span className="flex items-center gap-1">
                               <Clock className="h-4 w-4" />
-                              Updated: {new Date(goal.lastUpdated).toLocaleDateString()}
+                              Updated: {goal.latestUpdateDate ? new Date(goal.latestUpdateDate).toLocaleDateString() : new Date(goal.lastUpdated).toLocaleDateString()}
                             </span>
                           </div>
                         </div>
