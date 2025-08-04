@@ -373,8 +373,10 @@ export default async function handler(req, res) {
           actionItems
         });
         
-        // Save to Notion asynchronously
-        handlePartnerUpdateSubmission(slack, payload);
+        // Save to Notion asynchronously - don't await to return quickly to Slack
+        handlePartnerUpdateSubmission(slack, payload).catch(error => {
+          console.error('Error in async partner update:', error);
+        });
         
         // Return immediately to Slack
         return res.status(200).end();
@@ -1704,14 +1706,18 @@ async function handlePartnerUpdateSubmission(slack, payload) {
     healthScore,
     previousHealthScore: partnerData.currentHealthScore,
     keyUpdates,
-    actionItems,
-    updatesDbId
+    actionItems
   });
   
   try {
     // Save to Notion partner updates database
     const notionToken = process.env.NOTION_TOKEN;
     const updatesDbId = process.env.NOTION_PARTNER_UPDATES_DATABASE_ID;
+    
+    console.log('Database check:', {
+      hasToken: !!notionToken,
+      updatesDbId: updatesDbId
+    });
     
     if (!updatesDbId) {
       console.error('NOTION_PARTNER_UPDATES_DATABASE_ID not configured');
