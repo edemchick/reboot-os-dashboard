@@ -516,6 +516,23 @@ function createCheckinModal(goalData) {
           text: `🎯 *${goalData.goalTitle}*\nCurrent: ${goalData.currentProgress}% | Expected: ${goalData.expectedProgress}%`
         }
       },
+      ...(goalData.keyResults ? [{
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `📋 *Open Key Results:*\n${goalData.keyResults}`
+        }
+      }] : []),
+      ...(goalData.completedKRs ? [{
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `✅ *Completed Key Results:*\n${goalData.completedKRs}`
+        }
+      }] : []),
+      ...(goalData.keyResults || goalData.completedKRs ? [{
+        type: "divider"
+      }] : []),
       {
         type: "input",
         block_id: "progress_estimate",

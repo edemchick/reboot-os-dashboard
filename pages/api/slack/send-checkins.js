@@ -196,7 +196,9 @@ async function sendGoalCheckinsToUser(slack, userId, userGoals, quarterProgress)
                 goalTitle: goal.title,
                 currentProgress: currentProgress,
                 expectedProgress: expectedProgress,
-                quarter: goal.quarter
+                quarter: goal.quarter,
+                keyResults: goal.keyResults || '',
+                completedKRs: goal.completedKRs || ''
               })
             }
           ]
