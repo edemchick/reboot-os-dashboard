@@ -997,11 +997,11 @@ export default function Dashboard() {
             </div>
           )
         ) : activeTab === 'data' ? (
-          // Data Tab - Partner Dashboard
+          // Data Tab - Partner Scorecard
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Partner Dashboard</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Partner Scorecard</h2>
                 <p className="text-gray-600 mt-1">Active partner relationships and health scores</p>
               </div>
               <div className="text-right">
