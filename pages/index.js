@@ -905,7 +905,7 @@ export default function Dashboard() {
                             </div>
                           )}
                           
-                          {goal.latestUpdateDate && (goal.latestUpdateWentWell || goal.latestUpdateChallenges) && (
+                          {goal.latestUpdateDate && (goal.latestUpdateWentWell || goal.latestUpdateChallenges || goal.latestUpdateNextWeekFocus) && (
                             <div>
                               <button
                                 onClick={() => toggleUpdateExpansion(goal.id)}
@@ -948,6 +948,15 @@ export default function Dashboard() {
                                       <span className="font-medium text-blue-700">🎯 KRs to mark complete:</span>
                                       <div className="text-gray-600 whitespace-pre-line mt-1">
                                         {goal.latestUpdateCompletedKRs}
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {goal.latestUpdateNextWeekFocus && (
+                                    <div>
+                                      <span className="font-medium text-purple-700">📅 Next week focus:</span>
+                                      <div className="text-gray-600 whitespace-pre-line mt-1">
+                                        {goal.latestUpdateNextWeekFocus}
                                       </div>
                                     </div>
                                   )}

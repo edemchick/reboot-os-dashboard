@@ -223,6 +223,8 @@ async function processSlackInteraction(req) {
           // Handle regular check-in submission
           await handleCheckinSubmission(slack, payload, channelId);
           console.log('Check-in submission handled successfully');
+          // Return empty response to close modal (like goal_approval does)
+          return;
         }
       } catch (error) {
         console.error('Error handling submission:', error);
@@ -516,6 +518,23 @@ function createCheckinModal(goalData) {
       },
       {
         type: "input",
+        block_id: "progress_estimate",
+        element: {
+          type: "number_input",
+          action_id: "progress_input",
+          is_decimal_allowed: false,
+          min_value: "0",
+          max_value: "100",
+          initial_value: goalData.currentProgress.toString()
+        },
+        label: {
+          type: "plain_text",
+          text: `1️⃣ Where would you estimate progress is? (Currently: ${goalData.currentProgress}%)`,
+          emoji: true
+        }
+      },
+      {
+        type: "input",
         block_id: "went_well",
         element: {
           type: "plain_text_input",
@@ -528,7 +547,7 @@ function createCheckinModal(goalData) {
         },
         label: {
           type: "plain_text",
-          text: "1️⃣ What went well this week?",
+          text: "2️⃣ What went well this week?",
           emoji: true
         }
       },
@@ -546,7 +565,7 @@ function createCheckinModal(goalData) {
         },
         label: {
           type: "plain_text",
-          text: "2️⃣ What didn't go well this week?",
+          text: "3️⃣ What didn't go well this week?",
           emoji: true
         }
       },
@@ -564,27 +583,29 @@ function createCheckinModal(goalData) {
         },
         label: {
           type: "plain_text",
-          text: "3️⃣ Are there any KRs that should move over to complete?",
+          text: "4️⃣ Are there any KRs that should move over to complete?",
           emoji: true
         },
         optional: true
       },
       {
         type: "input",
-        block_id: "progress_estimate",
+        block_id: "next_week_focus",
         element: {
-          type: "number_input",
-          action_id: "progress_input",
-          is_decimal_allowed: false,
-          min_value: "0",
-          max_value: "100",
-          initial_value: goalData.currentProgress.toString()
+          type: "plain_text_input",
+          action_id: "next_week_focus_input",
+          multiline: true,
+          placeholder: {
+            type: "plain_text",
+            text: "What are your key priorities for next week?"
+          }
         },
         label: {
           type: "plain_text",
-          text: "4️⃣ Where would you estimate progress is? (0-100%)",
+          text: "5️⃣ What are we focusing on next week?",
           emoji: true
-        }
+        },
+        optional: true
       }
     ]
   };
@@ -808,6 +829,7 @@ async function handleCheckinSubmission(slack, payload, channelId) {
   const wentWell = values.went_well.went_well_input.value;
   const challenges = values.challenges.challenges_input.value;
   const completedKRs = values.completed_krs.completed_krs_input.value || '';
+  const nextWeekFocus = values.next_week_focus.next_week_focus_input.value || '';
   const newProgress = parseInt(values.progress_estimate.progress_input.value);
   
   const user = payload.user;
@@ -858,6 +880,13 @@ async function handleCheckinSubmission(slack, payload, channelId) {
           type: "mrkdwn",
           text: `*🎯 KRs to mark complete:*\n${completedKRs}`
         }
+      }] : []),
+      ...(nextWeekFocus ? [{
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*📅 Next week focus:*\n${nextWeekFocus}`
+        }
       }] : [])
     ]
   };
@@ -870,7 +899,7 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     console.log('Goal ID:', goalData.goalId);
     console.log('Goal Title:', goalData.goalTitle);
     console.log('New Progress:', newProgress);
-    console.log('Update Data:', { wentWell, challenges, completedKRs });
+    console.log('Update Data:', { wentWell, challenges, completedKRs, nextWeekFocus });
     
     const notionToken = process.env.NOTION_TOKEN;
     
@@ -899,6 +928,9 @@ async function handleCheckinSubmission(slack, payload, channelId) {
           },
           'Latest Update - Completed KRs': {
             rich_text: [{ text: { content: completedKRs } }]
+          },
+          'Latest Update - Next Week Focus': {
+            rich_text: [{ text: { content: nextWeekFocus } }]
           }
         }
       })
@@ -927,7 +959,7 @@ async function handleCheckinSubmission(slack, payload, channelId) {
   // Send confirmation DM to user
   await slack.chat.postMessage({
     channel: user.id,
-    text: `✅ Thanks for your update! Your progress for "${goalData.goalTitle}" has been updated to ${newProgress}% and posted to the team channel.`
+    text: `✅ Thanks for your update! Your progress for "${goalData.goalTitle}" has been updated to ${newProgress}%.`
   });
 }
 

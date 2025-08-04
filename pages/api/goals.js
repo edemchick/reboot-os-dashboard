@@ -126,7 +126,8 @@ export default async function handler(req, res) {
         latestUpdateDate: page.properties['Latest Update Date']?.date?.start || null,
         latestUpdateWentWell: extractRichText(page.properties['Latest Update - What Went Well']?.rich_text) || '',
         latestUpdateChallenges: extractRichText(page.properties['Latest Update - Challenges']?.rich_text) || '',
-        latestUpdateCompletedKRs: extractRichText(page.properties['Latest Update - Completed KRs']?.rich_text) || ''
+        latestUpdateCompletedKRs: extractRichText(page.properties['Latest Update - Completed KRs']?.rich_text) || '',
+        latestUpdateNextWeekFocus: extractRichText(page.properties['Latest Update - Next Week Focus']?.rich_text) || ''
       };
     });
 
