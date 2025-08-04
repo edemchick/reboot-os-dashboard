@@ -1,0 +1,38 @@
+{
+  "Q1": {
+    "reviewPreviousQuarter": false,
+    "analyzeMetrics": false,
+    "identifyImprovements": false,
+    "setNewGoals": false,
+    "planResources": false,
+    "scheduleReviews": false,
+    "communicateChanges": false
+  },
+  "Q2": {
+    "reviewPreviousQuarter": false,
+    "analyzeMetrics": false,
+    "identifyImprovements": false,
+    "setNewGoals": false,
+    "planResources": false,
+    "scheduleReviews": false,
+    "communicateChanges": false
+  },
+  "Q3": {
+    "reviewPreviousQuarter": false,
+    "analyzeMetrics": false,
+    "identifyImprovements": false,
+    "setNewGoals": false,
+    "planResources": false,
+    "scheduleReviews": false,
+    "communicateChanges": false
+  },
+  "Q4": {
+    "reviewPreviousQuarter": false,
+    "analyzeMetrics": false,
+    "identifyImprovements": false,
+    "setNewGoals": false,
+    "planResources": false,
+    "scheduleReviews": false,
+    "communicateChanges": false
+  }
+}

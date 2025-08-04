@@ -10,11 +10,16 @@ export default function AdminPage() {
     enabled: false,
     day: 'Monday'
   });
+  const [partnerScheduleData, setPartnerScheduleData] = useState({
+    enabled: false,
+    day: 'Friday'
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [statusData, setStatusData] = useState(null);
   const [slackLoading, setSlackLoading] = useState(false);
+  const [partnerSlackLoading, setPartnerSlackLoading] = useState(false);
   const [quarterlyConfig, setQuarterlyConfig] = useState(null);
   const [quarterlyLoading, setQuarterlyLoading] = useState(false);
   const [adminConfig, setAdminConfig] = useState(null);
@@ -57,6 +62,7 @@ export default function AdminPage() {
       }
 
       fetchScheduleSettings();
+      fetchPartnerScheduleSettings();
       fetchStatusData();
       fetchQuarterlyConfig();
       fetchAdminConfig();
@@ -77,6 +83,18 @@ export default function AdminPage() {
       console.error('Error fetching schedule settings:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPartnerScheduleSettings = async () => {
+    try {
+      const response = await fetch('/api/admin/partner-schedule');
+      if (response.ok) {
+        const data = await response.json();
+        setPartnerScheduleData(data);
+      }
+    } catch (error) {
+      console.error('Error fetching partner schedule settings:', error);
     }
   };
 
@@ -307,6 +325,67 @@ export default function AdminPage() {
     }));
   };
 
+  const savePartnerScheduleSettings = async () => {
+    setSaving(true);
+    setMessage({ type: '', text: '' });
+    
+    try {
+      const response = await fetch('/api/admin/partner-schedule', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(partnerScheduleData),
+      });
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Partner schedule settings saved successfully!' });
+        // Refresh status data
+        fetchStatusData();
+      } else {
+        throw new Error('Failed to save partner settings');
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to save partner schedule settings. Please try again.' });
+      console.error('Error saving partner schedule settings:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePartnerInputChange = (field, value) => {
+    setPartnerScheduleData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const sendManualPartnerCheckins = async () => {
+    setPartnerSlackLoading(true);
+    setMessage({ type: '', text: '' });
+    
+    try {
+      const response = await fetch('/api/admin/trigger-partner-checkins', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Partner check-ins sent successfully!' });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send partner check-ins');
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: `Failed to send partner check-ins: ${error.message}` });
+      console.error('Error sending partner check-ins:', error);
+    } finally {
+      setPartnerSlackLoading(false);
+    }
+  };
+
   const sendManualCheckins = async () => {
     setSlackLoading(true);
     setMessage({ type: '', text: '' });
@@ -374,7 +453,7 @@ export default function AdminPage() {
           <div className="p-6 border-b">
             <div className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-blue-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Weekly Check-in Schedule</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Goals Check-in Schedule</h2>
             </div>
             <p className="mt-1 text-sm text-gray-600">
               Configure automated Slack check-ins sent daily at 10:00 AM Eastern Time
@@ -473,6 +552,106 @@ export default function AdminPage() {
               </div>
             </div>
 
+          </div>
+        </div>
+
+        {/* Partner Check-in Schedule Section */}
+        <div className="bg-white rounded-lg shadow-sm border mt-6">
+          <div className="p-6 border-b">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-blue-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Partner Check-in Schedule</h2>
+            </div>
+            <p className="mt-1 text-sm text-gray-600">
+              Configure automated partner health check-ins sent daily at 10:00 AM Eastern Time
+            </p>
+          </div>
+          
+          <div className="p-6 space-y-6">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="partner-enabled"
+                checked={partnerScheduleData.enabled}
+                onChange={(e) => handlePartnerInputChange('enabled', e.target.checked)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="partner-enabled" className="ml-2 block text-sm text-gray-900">
+                Enable automatic partner check-ins
+              </label>
+            </div>
+
+            <div className="max-w-md">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Day of Week
+              </label>
+              <select
+                value={partnerScheduleData.day}
+                onChange={(e) => handlePartnerInputChange('day', e.target.value)}
+                disabled={!partnerScheduleData.enabled}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                  !partnerScheduleData.enabled ? 'bg-gray-100 text-gray-400' : ''
+                }`}
+              >
+                <option value="Monday">Monday</option>
+                <option value="Tuesday">Tuesday</option>
+                <option value="Wednesday">Wednesday</option>
+                <option value="Thursday">Thursday</option>
+                <option value="Friday">Friday</option>
+                <option value="Saturday">Saturday</option>
+                <option value="Sunday">Sunday</option>
+              </select>
+            </div>
+
+            {partnerScheduleData.enabled && (
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                <p className="text-sm text-blue-800">
+                  <strong>Scheduled:</strong> {partnerScheduleData.day}s at 10:00 AM Eastern Time
+                </p>
+              </div>
+            )}
+
+            <div className="pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <div className="flex gap-3">
+                  <button
+                    onClick={savePartnerScheduleSettings}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {saving ? 'Saving...' : 'Save Partner Schedule'}
+                  </button>
+
+                  <button
+                    onClick={sendManualPartnerCheckins}
+                    disabled={partnerSlackLoading}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {partnerSlackLoading ? 'Sending...' : 'Send Manual Partner Check-ins'}
+                  </button>
+                </div>
+
+                {statusData && (
+                  <div className="text-sm">
+                    <span className="text-gray-600">Schedule Status: </span>
+                    <span className={`font-medium ${
+                      partnerScheduleData.enabled 
+                        ? 'text-green-600' 
+                        : 'text-gray-500'
+                    }`}>
+                      {partnerScheduleData.enabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Important Notes Section */}
+        <div className="bg-white rounded-lg shadow-sm border mt-6">
+          <div className="p-6">
             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
@@ -489,7 +668,6 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
-
 
         {quarterlyConfig && (
           <div className="bg-white rounded-lg shadow-sm border mt-6">
@@ -590,7 +768,6 @@ export default function AdminPage() {
                     <ul className="mt-1 text-sm text-blue-700 space-y-1">
                       <li>• Changes will affect quarter calculations immediately after saving</li>
                       <li>• All goal filtering and progress tracking uses these dates</li>
-                      <li>• Q4 automatically handles year transitions (Oct-Jan)</li>
                       <li>• Make sure dates don't overlap between quarters</li>
                     </ul>
                   </div>
@@ -761,54 +938,6 @@ export default function AdminPage() {
                 </p>
               </div>
 
-              {/* Check-in Time Section */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Automated Check-in Time
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-md">
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Hour (24-hour format)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="23"
-                      value={adminConfig.checkInTime.hour}
-                      onChange={(e) => setAdminConfig(prev => ({
-                        ...prev,
-                        checkInTime: {
-                          ...prev.checkInTime,
-                          hour: parseInt(e.target.value) || 0
-                        }
-                      }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Timezone</label>
-                    <select
-                      value={adminConfig.checkInTime.timezone}
-                      onChange={(e) => setAdminConfig(prev => ({
-                        ...prev,
-                        checkInTime: {
-                          ...prev.checkInTime,
-                          timezone: e.target.value
-                        }
-                      }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="America/New_York">Eastern Time</option>
-                      <option value="America/Chicago">Central Time</option>
-                      <option value="America/Denver">Mountain Time</option>
-                      <option value="America/Los_Angeles">Pacific Time</option>
-                      <option value="UTC">UTC</option>
-                    </select>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Current setting: {adminConfig.checkInTime.hour}:00 {adminConfig.checkInTime.timezone.split('/')[1]?.replace('_', ' ')}
-                </p>
-              </div>
               
               <div className="pt-4 border-t">
                 <button

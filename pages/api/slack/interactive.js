@@ -132,6 +132,16 @@ async function processSlackInteraction(req) {
           view: createFeedbackModal(data)
         });
         console.log('Feedback modal opened successfully:', result.ok);
+      } else if (action.action_id === 'partner_update_button') {
+        const partnerData = JSON.parse(action.value);
+        console.log('🤝 Opening partner update modal for:', partnerData.partnerName);
+        
+        // Open a modal for partner health update
+        const result = await slack.views.open({
+          trigger_id: payload.trigger_id,
+          view: createPartnerUpdateModal(partnerData)
+        });
+        console.log('Partner update modal opened successfully:', result.ok);
       }
     } else if (payload.type === 'view_submission') {
       // Handle modal submission
@@ -205,6 +215,10 @@ async function processSlackInteraction(req) {
         } else if (payload.view.callback_id === 'submission_confirmation') {
           // This is never reached - confirmation modal uses buttons, not submission
           console.log('Submission confirmation callback - should not happen');
+        } else if (payload.view.callback_id === 'partner_update') {
+          // Handle partner update submission
+          await handlePartnerUpdateSubmission(slack, payload);
+          console.log('Partner update submission handled successfully');
         } else {
           // Handle regular check-in submission
           await handleCheckinSubmission(slack, payload, channelId);
@@ -1548,6 +1562,190 @@ function createFeedbackModal(data) {
       }
     ]
   };
+}
+
+function createPartnerUpdateModal(partnerData) {
+  console.log('🤝 Creating partner update modal for:', partnerData.partnerName);
+  
+  return {
+    type: "modal",
+    callback_id: "partner_update",
+    private_metadata: JSON.stringify(partnerData),
+    title: {
+      type: "plain_text",
+      text: "Partner Health Update",
+      emoji: true
+    },
+    submit: {
+      type: "plain_text",
+      text: "Submit Update",
+      emoji: true
+    },
+    close: {
+      type: "plain_text",
+      text: "Cancel",
+      emoji: true
+    },
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `🤝 *${partnerData.partnerName}*\nCurrent Health Score: ${partnerData.currentHealthScore}/10`
+        }
+      },
+      {
+        type: "input",
+        block_id: "health_score",
+        element: {
+          type: "static_select",
+          action_id: "health_score_select",
+          initial_option: {
+            text: {
+              type: "plain_text",
+              text: `${partnerData.currentHealthScore}/10`
+            },
+            value: partnerData.currentHealthScore.toString()
+          },
+          options: Array.from({length: 11}, (_, i) => ({
+            text: {
+              type: "plain_text",
+              text: `${i}/10`
+            },
+            value: i.toString()
+          }))
+        },
+        label: {
+          type: "plain_text",
+          text: "Health Score (0-10)",
+          emoji: true
+        }
+      },
+      {
+        type: "input",
+        block_id: "key_updates",
+        element: {
+          type: "plain_text_input",
+          action_id: "key_updates_input",
+          multiline: true,
+          placeholder: {
+            type: "plain_text",
+            text: "What are the key updates or developments with this partner?"
+          }
+        },
+        label: {
+          type: "plain_text",
+          text: "Key Updates",
+          emoji: true
+        }
+      },
+      {
+        type: "input",
+        block_id: "action_items",
+        element: {
+          type: "plain_text_input",
+          action_id: "action_items_input",
+          multiline: true,
+          placeholder: {
+            type: "plain_text",
+            text: "What action items or next steps are needed?"
+          }
+        },
+        label: {
+          type: "plain_text",
+          text: "Action Items",
+          emoji: true
+        },
+        optional: true
+      }
+    ]
+  };
+}
+
+async function handlePartnerUpdateSubmission(slack, payload) {
+  const partnerData = JSON.parse(payload.view.private_metadata);
+  const values = payload.view.state.values;
+  const user = payload.user;
+  
+  // Extract form responses
+  const healthScore = parseInt(values.health_score.health_score_select.selected_option.value);
+  const keyUpdates = values.key_updates.key_updates_input.value;
+  const actionItems = values.action_items.action_items_input.value || '';
+  
+  console.log('🤝 Partner update submission:', {
+    partner: partnerData.partnerName,
+    healthScore,
+    keyUpdates,
+    actionItems
+  });
+  
+  try {
+    // Save to Notion partner updates database
+    const notionToken = process.env.NOTION_TOKEN;
+    const updatesDbId = process.env.NOTION_PARTNER_UPDATES_DATABASE_ID;
+    
+    if (!updatesDbId) {
+      console.error('NOTION_PARTNER_UPDATES_DATABASE_ID not configured');
+      throw new Error('Partner updates database not configured');
+    }
+    
+    const response = await fetch('https://api.notion.com/v1/pages', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${notionToken}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28'
+      },
+      body: JSON.stringify({
+        parent: { database_id: updatesDbId },
+        properties: {
+          'Partner': {
+            relation: [{ id: partnerData.partnerId }]
+          },
+          'Date': {
+            date: {
+              start: new Date().toISOString().split('T')[0]
+            }
+          },
+          'Health Score': {
+            number: healthScore
+          },
+          'Key Updates': {
+            rich_text: [{ text: { content: keyUpdates } }]
+          },
+          'Action Items': {
+            rich_text: [{ text: { content: actionItems } }]
+          },
+          'Submitted By': {
+            rich_text: [{ text: { content: user.real_name || user.name } }]
+          }
+        }
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Failed to save partner update to Notion:', response.status, errorData);
+      throw new Error(`Failed to save to database: ${response.status}`);
+    }
+    
+    console.log('✅ Partner update saved to Notion successfully');
+    
+    // Send confirmation DM to user
+    await slack.chat.postMessage({
+      channel: user.id,
+      text: `✅ Thanks for the update! Your partner health report for "${partnerData.partnerName}" has been saved.`
+    });
+    
+  } catch (error) {
+    console.error('Error saving partner update:', error);
+    
+    // Send error message to user
+    await slack.chat.postMessage({
+      channel: user.id,
+      text: `❌ Sorry, there was an error saving your partner update for "${partnerData.partnerName}". Please try again or contact support.`
+    });
+  }
 }
 
 

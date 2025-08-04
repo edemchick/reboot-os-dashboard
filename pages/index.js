@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
-import { Target, TrendingUp, AlertCircle, CheckCircle, Clock, LogOut, Settings, ChevronDown, Plus, BookOpen, ArrowRight, Calendar } from 'lucide-react';
+import { Target, TrendingUp, AlertCircle, CheckCircle, Clock, LogOut, Settings, ChevronDown, ChevronRight, Plus, BookOpen, ArrowRight, Calendar } from 'lucide-react';
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
@@ -32,12 +32,114 @@ export default function Dashboard() {
     owners: false,
     krSubmission: false
   });
+  const [partners, setPartners] = useState([]);
+  const [partnersLoading, setPartnersLoading] = useState(false);
+  const [partnersError, setPartnersError] = useState(null);
+  const [expandedPartners, setExpandedPartners] = useState({});
 
-  // Function to toggle checklist items
-  const toggleChecklistItem = (itemKey) => {
+  // Load checklist state from API
+  const fetchChecklistState = async () => {
+    try {
+      const response = await fetch('/api/admin/prep-checklist');
+      if (response.ok) {
+        const data = await response.json();
+        const currentQuarter = quarterInfo.quarter;
+        const nextQuarter = getNextQuarter(currentQuarter);
+        
+        if (data[nextQuarter]) {
+          // Map API data to current UI structure
+          setChecklistState({
+            carryOver: data[nextQuarter].reviewPreviousQuarter || false,
+            keyPriorities: data[nextQuarter].setNewGoals || false,
+            owners: data[nextQuarter].planResources || false,
+            krSubmission: data[nextQuarter].communicateChanges || false
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching checklist state:', error);
+    }
+  };
+
+  // Function to toggle checklist items and save to API
+  const toggleChecklistItem = async (itemKey) => {
+    const newValue = !checklistState[itemKey];
+    
+    // Update local state immediately for better UX
     setChecklistState(prev => ({
       ...prev,
-      [itemKey]: !prev[itemKey]
+      [itemKey]: newValue
+    }));
+    
+    try {
+      const currentQuarter = quarterInfo.quarter;
+      const nextQuarter = getNextQuarter(currentQuarter);
+      
+      // Map UI keys to API keys
+      const keyMapping = {
+        carryOver: 'reviewPreviousQuarter',
+        keyPriorities: 'setNewGoals',
+        owners: 'planResources',
+        krSubmission: 'communicateChanges'
+      };
+      
+      const apiKey = keyMapping[itemKey];
+      if (apiKey) {
+        const response = await fetch('/api/admin/prep-checklist', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            quarter: nextQuarter,
+            itemKey: apiKey,
+            checked: newValue
+          })
+        });
+        
+        if (!response.ok) {
+          // Revert local state if API call failed
+          setChecklistState(prev => ({
+            ...prev,
+            [itemKey]: !newValue
+          }));
+          console.error('Failed to update checklist item');
+        }
+      }
+    } catch (error) {
+      // Revert local state if API call failed
+      setChecklistState(prev => ({
+        ...prev,
+        [itemKey]: !newValue
+      }));
+      console.error('Error updating checklist item:', error);
+    }
+  };
+
+  // Fetch partners data from API
+  const fetchPartners = async () => {
+    setPartnersLoading(true);
+    setPartnersError(null);
+    try {
+      const response = await fetch('/api/partners');
+      if (!response.ok) {
+        throw new Error('Failed to fetch partners');
+      }
+      const data = await response.json();
+      setPartners(data);
+    } catch (error) {
+      console.error('Error fetching partners:', error);
+      setPartnersError(error.message);
+    } finally {
+      setPartnersLoading(false);
+    }
+  };
+
+  // Function to toggle partner row expansion
+  const togglePartnerExpansion = (partnerId) => {
+    setExpandedPartners(prev => ({
+      ...prev,
+      [partnerId]: !prev[partnerId]
     }));
   };
 
@@ -88,6 +190,9 @@ export default function Dashboard() {
     fetchGoals();
     fetchQuarterInfo();
     fetchAdminConfig();
+    if (activeTab === 'q4prep') {
+      fetchChecklistState();
+    }
     fetchEmployees();
     fetchFocusOptions();
   }, [session, status, router]);
@@ -152,6 +257,10 @@ export default function Dashboard() {
     setActiveTab(tab);
     if (tab === 'longterm') {
       fetchLongTermData();
+    } else if (tab === 'q4prep') {
+      fetchChecklistState();
+    } else if (tab === 'data') {
+      fetchPartners();
     }
   };
 
@@ -566,6 +675,18 @@ export default function Dashboard() {
                 </button>
                 {isAdmin() && (
                   <button
+                    onClick={() => handleTabChange('data')}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      activeTab === 'data'
+                        ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    Data
+                  </button>
+                )}
+                {isAdmin() && (
+                  <button
                     onClick={() => handleTabChange('q4prep')}
                     className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                       activeTab === 'q4prep'
@@ -573,7 +694,7 @@ export default function Dashboard() {
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                     }`}
                   >
-                    {getNextQuarter(currentQuarter)} Prep (WIP)
+                    {getNextQuarter(currentQuarter)} Prep
                   </button>
                 )}
               </div>
@@ -875,11 +996,175 @@ export default function Dashboard() {
               })()}
             </div>
           )
+        ) : activeTab === 'data' ? (
+          // Data Tab - Partner Dashboard
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Partner Dashboard</h2>
+                <p className="text-gray-600 mt-1">Active partner relationships and health scores</p>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-gray-500">
+                  {partners.length} Active Partners
+                </div>
+              </div>
+            </div>
+
+            {partnersLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
+                <p className="text-gray-600 mt-4">Loading partner data...</p>
+              </div>
+            ) : partnersError ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+                  <p className="text-red-800">{partnersError}</p>
+                </div>
+                <p className="text-red-600 text-sm mt-2">
+                  Check your NOTION_PARTNERS_DATABASE_ID environment variable and database sharing settings.
+                </p>
+              </div>
+            ) : partners.length === 0 ? (
+              <div className="text-center py-12">
+                <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">No active partners found</p>
+              </div>
+            ) : (
+              <div className="bg-white shadow rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Partner
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Category
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Main Contact
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Health Score
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Trend
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Last Updated
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Details
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {partners.map((partner) => (
+                        <>
+                          <tr 
+                            key={partner.id} 
+                            className="hover:bg-gray-50 cursor-pointer"
+                            onClick={() => togglePartnerExpansion(partner.id)}
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">
+                                {partner.partnerName}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                partner.category === 'MLB' ? 'bg-green-100 text-green-800' :
+                                partner.category === 'NBA' ? 'bg-blue-100 text-blue-800' :
+                                partner.category === 'B2B' ? 'bg-purple-100 text-purple-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {partner.category}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{partner.mainContact}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className={`text-sm font-semibold ${
+                                  partner.currentHealthScore >= 8 ? 'text-green-600' :
+                                  partner.currentHealthScore >= 6 ? 'text-yellow-600' :
+                                  partner.currentHealthScore >= 4 ? 'text-orange-600' :
+                                  'text-red-600'
+                                }`}>
+                                  {partner.currentHealthScore}/10
+                                </div>
+                                <div className={`ml-2 w-16 h-2 rounded-full ${
+                                  partner.currentHealthScore >= 8 ? 'bg-green-200' :
+                                  partner.currentHealthScore >= 6 ? 'bg-yellow-200' :
+                                  partner.currentHealthScore >= 4 ? 'bg-orange-200' :
+                                  'bg-red-200'
+                                }`}>
+                                  <div 
+                                    className={`h-2 rounded-full ${
+                                      partner.currentHealthScore >= 8 ? 'bg-green-600' :
+                                      partner.currentHealthScore >= 6 ? 'bg-yellow-600' :
+                                      partner.currentHealthScore >= 4 ? 'bg-orange-600' :
+                                      'bg-red-600'
+                                    }`}
+                                    style={{ width: `${partner.currentHealthScore * 10}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-lg">{partner.trend}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-500">
+                                {partner.lastUpdated ? new Date(partner.lastUpdated).toLocaleDateString() : '-'}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center justify-center">
+                                {expandedPartners[partner.id] ? (
+                                  <ChevronDown className="h-5 w-5 text-gray-400" />
+                                ) : (
+                                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                          {expandedPartners[partner.id] && (
+                            <tr key={`${partner.id}-details`} className="bg-gray-50">
+                              <td colSpan="7" className="px-6 py-4">
+                                <div className="space-y-4">
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Key Updates</h4>
+                                    <div className="text-sm text-gray-700 bg-white p-3 rounded border">
+                                      {partner.keyUpdates || 'No recent updates'}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Action Items</h4>
+                                    <div className="text-sm text-gray-700 bg-white p-3 rounded border">
+                                      {partner.actionItems || 'No action items'}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           // Q4 Preparation Tab
           <div className="space-y-8">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">{getNextQuarter(currentQuarter)} 2025 Preparation (WIP)</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">{getNextQuarter(currentQuarter)} 2025 Preparation</h2>
               <p className="text-gray-600">Plan and prepare for the upcoming quarter</p>
             </div>
 
