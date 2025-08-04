@@ -916,7 +916,7 @@ async function handleCheckinSubmission(slack, payload, channelId) {
           },
           'Latest Update Date': {
             date: {
-              start: new Date().toISOString().split('T')[0]
+              start: new Date().toLocaleDateString('en-CA')
             }
           },
           'Latest Update - What Went Well': {
