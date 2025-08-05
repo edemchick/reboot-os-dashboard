@@ -1163,6 +1163,12 @@ export default function Dashboard() {
                                     </div>
                                   </div>
                                   <div>
+                                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Current Hurdles</h4>
+                                    <div className="text-sm text-gray-700 bg-white p-3 rounded border">
+                                      {partner.currentHurdles || 'No current hurdles'}
+                                    </div>
+                                  </div>
+                                  <div>
                                     <h4 className="text-sm font-semibold text-gray-900 mb-2">Action Items</h4>
                                     <div className="text-sm text-gray-700 bg-white p-3 rounded border">
                                       {partner.actionItems || 'No action items'}

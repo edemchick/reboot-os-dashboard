@@ -110,6 +110,20 @@ export default async function handler(req, res) {
         }
       }
       
+      // Extract current hurdles from formula or rollup
+      const currentHurdlesProperty = properties['Current Hurdles'];
+      let currentHurdles = '';
+      if (currentHurdlesProperty?.formula?.string) {
+        // Handle Formula -> String
+        currentHurdles = currentHurdlesProperty.formula.string;
+      } else if (currentHurdlesProperty?.rollup?.type === 'array' && currentHurdlesProperty.rollup.array?.length > 0) {
+        // Handle Rollup (legacy support)
+        const hurdlesItem = currentHurdlesProperty.rollup.array[0];
+        if (hurdlesItem?.type === 'rich_text' && hurdlesItem.rich_text?.length > 0) {
+          currentHurdles = hurdlesItem.rich_text.map(rt => rt.text?.content || '').join('');
+        }
+      }
+      
       // Extract action items from formula or rollup
       const actionItemsProperty = properties['Action Items'];
       let actionItems = '';
@@ -133,6 +147,7 @@ export default async function handler(req, res) {
         trend: trend,
         lastUpdated: lastUpdated,
         keyUpdates: keyUpdates,
+        currentHurdles: currentHurdles,
         actionItems: actionItems
       };
     });
