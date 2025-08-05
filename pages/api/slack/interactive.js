@@ -1905,28 +1905,19 @@ async function handlePartnerUpdateSubmission(slack, payload) {
     if (!response.ok) {
       const errorData = await response.text();
       console.error('Failed to save partner update to Notion:', response.status, errorData);
-      console.error('Request body was:', JSON.stringify({
-        parent: { database_id: updatesDbId },
-        properties: {
-          'Partner': { relation: [{ id: partnerData.partnerId }] },
-          'Update Date': { date: { start: new Date().toISOString().split('T')[0] } },
-          'Health Score': { number: healthScore },
-          'Previous Health Score': { number: partnerData.currentHealthScore },
-          'Key Updates': { rich_text: [{ text: { content: keyUpdates } }] },
-          'Action Items': { rich_text: [{ text: { content: actionItems } }] },
-          'Submitted By': { rich_text: [{ text: { content: user.real_name || user.name } }] }
-        }
-      }, null, 2));
+      console.error('Request body was:', JSON.stringify(requestBody, null, 2));
       throw new Error(`Failed to save to database: ${response.status}`);
     }
     
     console.log('✅ Partner update saved to Notion successfully');
     
     // Send confirmation DM to user
+    console.log('📨 Sending confirmation DM to user:', user.id);
     await slack.chat.postMessage({
       channel: user.id,
       text: `✅ Thanks for the update! Your partner health report for "${partnerData.partnerName}" has been saved.`
     });
+    console.log('📨 Confirmation DM sent successfully');
     
   } catch (error) {
     console.error('Error saving partner update:', error);
