@@ -673,18 +673,16 @@ export default function Dashboard() {
                 >
                   Long Term
                 </button>
-                {isAdmin() && (
-                  <button
-                    onClick={() => handleTabChange('data')}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      activeTab === 'data'
-                        ? 'bg-purple-100 text-purple-700 border border-purple-200'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
-                  >
-                    Data
-                  </button>
-                )}
+                <button
+                  onClick={() => handleTabChange('data')}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'data'
+                      ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  Data
+                </button>
                 {isAdmin() && (
                   <button
                     onClick={() => handleTabChange('q4prep')}
