@@ -1692,6 +1692,13 @@ function createPartnerUpdateModal(partnerData) {
         }
       },
       {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `💡 *Health Score Guidance:*\nTo determine the health score, think 'How disappointed would this partner be if they could no longer work with Reboot?' The closer you are to extremely disappointed, the closer they are to a 10.`
+        }
+      },
+      {
         type: "input",
         block_id: "health_score",
         element: {
@@ -1738,6 +1745,24 @@ function createPartnerUpdateModal(partnerData) {
       },
       {
         type: "input",
+        block_id: "current_hurdles",
+        element: {
+          type: "plain_text_input",
+          action_id: "current_hurdles_input",
+          multiline: true,
+          placeholder: {
+            type: "plain_text",
+            text: "What is stopping this partner from scoring a 10/10?"
+          }
+        },
+        label: {
+          type: "plain_text",
+          text: "Current Hurdles",
+          emoji: true
+        }
+      },
+      {
+        type: "input",
         block_id: "action_items",
         element: {
           type: "plain_text_input",
@@ -1767,6 +1792,7 @@ async function handlePartnerUpdateSubmission(slack, payload) {
   // Extract form responses
   const healthScore = parseInt(values.health_score.health_score_select.selected_option.value);
   const keyUpdates = values.key_updates.key_updates_input.value;
+  const currentHurdles = values.current_hurdles.current_hurdles_input.value || '';
   const actionItems = values.action_items.action_items_input.value || '';
   
   console.log('🤝 Partner update submission:', {
@@ -1775,6 +1801,7 @@ async function handlePartnerUpdateSubmission(slack, payload) {
     healthScore,
     previousHealthScore: partnerData.currentHealthScore,
     keyUpdates,
+    currentHurdles,
     actionItems
   });
   
@@ -1814,6 +1841,9 @@ async function handlePartnerUpdateSubmission(slack, payload) {
         },
         'Key Updates': {
           rich_text: [{ text: { content: keyUpdates } }]
+        },
+        'Current Hurdles': {
+          rich_text: [{ text: { content: currentHurdles } }]
         },
         'Action Items': {
           rich_text: [{ text: { content: actionItems } }]
