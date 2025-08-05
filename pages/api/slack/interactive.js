@@ -374,21 +374,21 @@ export default async function handler(req, res) {
         // Extract form responses
         const healthScore = parseInt(values.health_score.health_score_select.selected_option.value);
         const keyUpdates = values.key_updates.key_updates_input.value;
+        const currentHurdles = values.current_hurdles.current_hurdles_input.value || '';
         const actionItems = values.action_items.action_items_input.value || '';
         
         console.log('🤝 Partner update data:', {
           partner: partnerData.partnerName,
           healthScore,
           keyUpdates,
+          currentHurdles,
           actionItems
         });
         
-        // Save to Notion asynchronously - don't await to return quickly to Slack
-        handlePartnerUpdateSubmission(slack, payload).catch(error => {
-          console.error('Error in async partner update:', error);
-        });
+        // Handle partner update submission
+        await handlePartnerUpdateSubmission(slack, payload);
+        console.log('Partner update submission handled successfully');
         
-        // Return immediately to Slack
         return res.status(200).end();
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'manager_feedback') {
         console.log('🔄 Processing manager feedback submission...');
