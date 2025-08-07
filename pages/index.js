@@ -722,16 +722,28 @@ export default function Dashboard() {
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-50">
                     <div className="py-1">
                       {isAdmin() && (
-                        <button
-                          onClick={() => {
-                            setShowUserDropdown(false);
-                            router.push('/admin');
-                          }}
-                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        >
-                          <Settings className="h-4 w-4" />
-                          Admin Settings
-                        </button>
+                        <>
+                          <button
+                            onClick={() => {
+                              setShowUserDropdown(false);
+                              router.push('/admin');
+                            }}
+                            className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          >
+                            <Settings className="h-4 w-4" />
+                            Admin Settings
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowUserDropdown(false);
+                              router.push('/people-analyzer');
+                            }}
+                            className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          >
+                            <Target className="h-4 w-4 text-red-600" />
+                            People Analyzer
+                          </button>
+                        </>
                       )}
                       <button
                         onClick={() => {
