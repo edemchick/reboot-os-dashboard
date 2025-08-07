@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
-import { ArrowLeft, Clock, Save, AlertCircle, MessageSquare, Settings, Plus, X } from 'lucide-react';
+import { ArrowLeft, Clock, Save, AlertCircle, MessageSquare, Settings, Plus, X, Calendar } from 'lucide-react';
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
@@ -444,6 +444,15 @@ export default function AdminPage() {
             </button>
             <div className="h-6 w-px bg-gray-300"></div>
             <h1 className="text-xl font-semibold text-gray-900">Admin Settings</h1>
+            <div className="flex items-center gap-4 ml-auto">
+              <button
+                onClick={() => router.push('/admin/q4-prep')}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors"
+              >
+                <Calendar className="h-4 w-4" />
+                Quarter Preparation
+              </button>
+            </div>
           </div>
         </div>
       </div>
