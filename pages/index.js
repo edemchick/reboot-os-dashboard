@@ -100,6 +100,19 @@ export default function Dashboard() {
     }
   };
 
+  // Read initial tab from URL on page load
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      const validTabs = ['manifesto', 'longterm', 'current', 'data'];
+      
+      if (tabParam && validTabs.includes(tabParam)) {
+        setActiveTab(tabParam);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (status === 'loading') return; // Still loading
     if (!session) {
@@ -193,6 +206,14 @@ export default function Dashboard() {
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
+    
+    // Update URL without triggering a page reload
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location);
+      url.searchParams.set('tab', tab);
+      window.history.pushState({}, '', url);
+    }
+    
     if (tab === 'manifesto') {
       fetchManifesto();
     } else if (tab === 'longterm') {
