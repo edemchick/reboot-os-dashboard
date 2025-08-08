@@ -100,17 +100,6 @@ export default function Dashboard() {
     }
   };
 
-  // URL routing effect - read tab from URL on page load
-  useEffect(() => {
-    if (router.isReady) {
-      const validTabs = ['manifesto', 'longterm', 'current', 'data'];
-      const urlTab = router.query.tab;
-      if (urlTab && validTabs.includes(urlTab)) {
-        setActiveTab(urlTab);
-      }
-    }
-  }, [router.isReady, router.query.tab]);
-
   useEffect(() => {
     if (status === 'loading') return; // Still loading
     if (!session) {
@@ -204,9 +193,6 @@ export default function Dashboard() {
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    // Update URL without page reload
-    router.push(`/?tab=${tab}`, undefined, { shallow: true });
-    
     if (tab === 'manifesto') {
       fetchManifesto();
     } else if (tab === 'longterm') {
