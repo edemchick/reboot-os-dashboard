@@ -12,6 +12,7 @@ export default function Q4PrepPage() {
     carryOver: false,
     keyPriorities: false,
     owners: false,
+    hiringNeeds: false,
     krSubmission: false
   });
   const [quarterInfo, setQuarterInfo] = useState({ quarter: 'Q1', quarterProgress: 0 });
@@ -59,23 +60,25 @@ export default function Q4PrepPage() {
       }
 
       fetchGoals();
-      fetchQuarterInfo();
-      fetchChecklistState();
       fetchEmployees();
       fetchFocusOptions();
+      // Fetch quarter info first, then checklist state
+      const currentQuarter = await fetchQuarterInfo();
+      fetchChecklistState(currentQuarter);
     };
 
     checkAdminAndFetch();
   }, [session, status, router]);
 
   // Load checklist state from API
-  const fetchChecklistState = async () => {
+  const fetchChecklistState = async (currentQuarter = null) => {
     try {
       const response = await fetch('/api/admin/prep-checklist');
       if (response.ok) {
         const data = await response.json();
-        const currentQuarter = quarterInfo.quarter;
-        const nextQuarter = getNextQuarter(currentQuarter);
+        // Use passed quarter or fall back to quarterInfo state
+        const quarter = currentQuarter || quarterInfo.quarter;
+        const nextQuarter = getNextQuarter(quarter);
         
         if (data[nextQuarter]) {
           // Map API data to current UI structure
@@ -83,6 +86,7 @@ export default function Q4PrepPage() {
             carryOver: data[nextQuarter].reviewPreviousQuarter || false,
             keyPriorities: data[nextQuarter].setNewGoals || false,
             owners: data[nextQuarter].planResources || false,
+            hiringNeeds: data[nextQuarter].discussHiringNeeds || false,
             krSubmission: data[nextQuarter].communicateChanges || false
           });
         }
@@ -111,6 +115,7 @@ export default function Q4PrepPage() {
         carryOver: 'reviewPreviousQuarter',
         keyPriorities: 'setNewGoals',
         owners: 'planResources',
+        hiringNeeds: 'discussHiringNeeds',
         krSubmission: 'communicateChanges'
       };
       
@@ -168,9 +173,11 @@ export default function Q4PrepPage() {
     try {
       const quarterData = await getQuarterInfo();
       setQuarterInfo(quarterData);
+      return quarterData.quarter;
     } catch (error) {
       console.error('Error fetching quarter info:', error);
       setQuarterInfo({ quarter: 'Q1', quarterProgress: 0 });
+      return 'Q1';
     }
   };
 
@@ -579,11 +586,27 @@ export default function Q4PrepPage() {
                     <input 
                       type="checkbox" 
                       className="mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                      checked={checklistState.hiringNeeds}
+                      onChange={() => toggleChecklistItem('hiringNeeds')} 
+                    />
+                    <span className={`text-blue-800 ${checklistState.hiringNeeds ? 'line-through opacity-60' : ''}`}>
+                      <strong>4. Discuss hiring needs with leadership</strong>
+                      <div className="text-blue-600 mt-1 text-xs">
+                        Review current people, responsibilities, and identify potential hiring needs
+                        {krDeadlineDate && <div className="text-blue-700 font-medium">⏰ Deadline: {krDeadlineDate}</div>}
+                      </div>
+                    </span>
+                  </label>
+                  
+                  <label className="flex items-start gap-3 text-sm cursor-pointer hover:bg-blue-100 p-2 rounded">
+                    <input 
+                      type="checkbox" 
+                      className="mt-0.5 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
                       checked={checklistState.krSubmission}
                       onChange={() => toggleChecklistItem('krSubmission')} 
                     />
                     <span className={`text-blue-800 ${checklistState.krSubmission ? 'line-through opacity-60' : ''}`}>
-                      <strong>4. All KRs submitted by goal owners</strong>
+                      <strong>5. All KRs submitted by goal owners</strong>
                       <div className="text-blue-600 mt-1 text-xs">
                         Ensure all goal owners have submitted their Key Results for approval
                         {krDeadlineDate && <div className="text-blue-700 font-medium">⏰ Deadline: {krDeadlineDate}</div>}

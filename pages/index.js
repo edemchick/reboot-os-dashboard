@@ -9,11 +9,14 @@ export default function Dashboard() {
   const router = useRouter();
   const [goals, setGoals] = useState([]);
   const [longTermData, setLongTermData] = useState([]);
-  const [activeTab, setActiveTab] = useState('current');
+  const [manifestoData, setManifestoData] = useState([]);
+  const [activeTab, setActiveTab] = useState('manifesto');
   const [loading, setLoading] = useState(true);
   const [longTermLoading, setLongTermLoading] = useState(false);
+  const [manifestoLoading, setManifestoLoading] = useState(false);
   const [error, setError] = useState(null);
   const [longTermError, setLongTermError] = useState(null);
+  const [manifestoError, setManifestoError] = useState(null);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [expandedUpdates, setExpandedUpdates] = useState({});
   const [quarterInfo, setQuarterInfo] = useState({ quarter: 'Q1', quarterProgress: 0 });
@@ -108,6 +111,7 @@ export default function Dashboard() {
     fetchAdminConfig();
     fetchEmployees();
     fetchFocusOptions();
+    fetchManifesto();
   }, [session, status, router]);
 
   const fetchQuarterInfo = async () => {
@@ -166,9 +170,32 @@ export default function Dashboard() {
     }
   };
 
+  const fetchManifesto = async () => {
+    setManifestoLoading(true);
+    setManifestoError(null);
+    try {
+      const response = await fetch('/api/manifesto');
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch manifesto data');
+      }
+      
+      setManifestoData(data);
+      setManifestoError(null);
+    } catch (err) {
+      setManifestoError(err.message);
+      console.error('Error:', err);
+    } finally {
+      setManifestoLoading(false);
+    }
+  };
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    if (tab === 'longterm') {
+    if (tab === 'manifesto') {
+      fetchManifesto();
+    } else if (tab === 'longterm') {
       fetchLongTermData();
     } else if (tab === 'data') {
       fetchPartners();
@@ -491,6 +518,7 @@ export default function Dashboard() {
     );
   };
 
+
   if (status === 'loading') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -529,14 +557,14 @@ export default function Dashboard() {
               <h1 className="text-2xl font-bold text-gray-900">Reboot OS Control Tower</h1>
               <div className="flex items-center gap-6 mt-3">
                 <button
-                  onClick={() => handleTabChange('current')}
+                  onClick={() => handleTabChange('manifesto')}
                   className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    activeTab === 'current'
-                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                    activeTab === 'manifesto'
+                      ? 'bg-green-100 text-green-700 border border-green-200'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                   }`}
                 >
-                  Current Goals
+                  Reboot Manifesto
                 </button>
                 <button
                   onClick={() => handleTabChange('longterm')}
@@ -546,7 +574,17 @@ export default function Dashboard() {
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                   }`}
                 >
-                  Long Term
+                  Long-Term Vision
+                </button>
+                <button
+                  onClick={() => handleTabChange('current')}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'current'
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  Current Goals
                 </button>
                 <button
                   onClick={() => handleTabChange('data')}
@@ -638,7 +676,112 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {activeTab === 'current' ? (
+        {activeTab === 'manifesto' ? (
+          manifestoLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+              <p className="text-gray-600 mt-4">Loading manifesto...</p>
+            </div>
+          ) : manifestoError ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <div className="flex items-center">
+                <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+                <p className="text-red-800">{manifestoError}</p>
+              </div>
+              <p className="text-red-600 text-sm mt-2">
+                Check your NOTION_MANIFESTO_PAGE_ID environment variable and page sharing settings.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {/* Hero Section */}
+              <div className="text-center mb-12">
+                <h2 className="text-4xl font-bold text-gray-900 mb-4">{manifestoData.title || 'The Reboot Manifesto'}</h2>
+                <p className="text-lg text-gray-600">Our mission, values, and beliefs that guide everything we do</p>
+                {manifestoData.lastEdited && (
+                  <p className="text-sm text-orange-500 mt-3">
+                    Last updated: {new Date(manifestoData.lastEdited).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+              
+              <div className="flex gap-8">
+                {/* Table of Contents */}
+                {manifestoData.navigation && manifestoData.navigation.length > 0 && (
+                  <div className="w-72 flex-shrink-0">
+                    <div className="sticky top-20 bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                      <h3 className="text-base font-semibold text-gray-900 mb-4">
+                        Table of Contents
+                      </h3>
+                      <nav className="space-y-1">
+                        {manifestoData.navigation.map((item, index) => (
+                          <a
+                            key={index}
+                            href={`#${item.id}`}
+                            className={`block text-sm hover:text-orange-500 transition-colors duration-200 ${
+                              item.level === 1 ? 'font-medium text-gray-900' :
+                              item.level === 2 ? 'text-gray-700 ml-3' :
+                              'text-gray-600 ml-6'
+                            }`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              document.getElementById(item.id)?.scrollIntoView({ 
+                                behavior: 'smooth',
+                                block: 'start'
+                              });
+                            }}
+                          >
+                            {item.title}
+                          </a>
+                        ))}
+                      </nav>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Main Content */}
+                <div className="flex-1">
+                  {manifestoData.content ? (
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-none">
+                      <style jsx global>{`
+                        .animate-fade-in {
+                          animation: fadeInUp 0.6s ease-out forwards;
+                          opacity: 0;
+                          transform: translateY(10px);
+                        }
+                        
+                        @keyframes fadeInUp {
+                          to {
+                            opacity: 1;
+                            transform: translateY(0);
+                          }
+                        }
+                        
+                        .animate-fade-in:nth-child(1) { animation-delay: 0.1s; }
+                        .animate-fade-in:nth-child(2) { animation-delay: 0.15s; }
+                        .animate-fade-in:nth-child(3) { animation-delay: 0.2s; }
+                        .animate-fade-in:nth-child(4) { animation-delay: 0.25s; }
+                        .animate-fade-in:nth-child(5) { animation-delay: 0.3s; }
+                        
+                        html {
+                          scroll-behavior: smooth;
+                        }
+                      `}</style>
+                      <div 
+                        className="prose prose-lg max-w-none"
+                        dangerouslySetInnerHTML={{ __html: manifestoData.content }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <p className="text-gray-500">No manifesto content found.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        ) : activeTab === 'current' ? (
           loading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>

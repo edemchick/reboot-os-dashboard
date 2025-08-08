@@ -13,6 +13,7 @@ const DEFAULT_CONFIG = {
     identifyImprovements: false,
     setNewGoals: false,
     planResources: false,
+    discussHiringNeeds: false,
     scheduleReviews: false,
     communicateChanges: false
   },
@@ -22,6 +23,7 @@ const DEFAULT_CONFIG = {
     identifyImprovements: false,
     setNewGoals: false,
     planResources: false,
+    discussHiringNeeds: false,
     scheduleReviews: false,
     communicateChanges: false
   },
@@ -31,6 +33,7 @@ const DEFAULT_CONFIG = {
     identifyImprovements: false,
     setNewGoals: false,
     planResources: false,
+    discussHiringNeeds: false,
     scheduleReviews: false,
     communicateChanges: false
   },
@@ -40,6 +43,7 @@ const DEFAULT_CONFIG = {
     identifyImprovements: false,
     setNewGoals: false,
     planResources: false,
+    discussHiringNeeds: false,
     scheduleReviews: false,
     communicateChanges: false
   }
