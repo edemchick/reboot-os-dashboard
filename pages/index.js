@@ -469,9 +469,9 @@ export default function Dashboard() {
   };
 
   const organizeLongTermData = () => {
-    const fiveYear = longTermData.filter(item => item.type === '5 Year Vision');
-    const threeYear = longTermData.filter(item => item.type === '3 Year Picture');
-    const annual = longTermData.filter(item => item.type === 'Annual Plan');
+    const fiveYear = longTermData.filter(item => item.type.includes('5 Year Vision'));
+    const threeYear = longTermData.filter(item => item.type.includes('3 Year Picture'));
+    const annual = longTermData.filter(item => item.type.includes('Annual Plan'));
     
     return { fiveYear, threeYear, annual };
   };
@@ -1034,9 +1034,9 @@ export default function Dashboard() {
                 const { fiveYear, threeYear, annual } = organizeLongTermData();
                 return (
                   <div className="space-y-8">
-                    {renderLongTermSection('5 Year Vision', fiveYear, 'text-purple-600')}
-                    {renderLongTermSection('3 Year Picture', threeYear, 'text-blue-600')}
-                    {renderLongTermSection('Annual Plan', annual, 'text-green-600')}
+                    {renderLongTermSection(fiveYear[0]?.type || '5 Year Vision', fiveYear, 'text-purple-600')}
+                    {renderLongTermSection(threeYear[0]?.type || '3 Year Picture', threeYear, 'text-blue-600')}
+                    {renderLongTermSection(annual[0]?.type || 'Annual Plan', annual, 'text-green-600')}
                   </div>
                 );
               })()}
