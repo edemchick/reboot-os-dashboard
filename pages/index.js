@@ -124,8 +124,21 @@ export default function Dashboard() {
     fetchAdminConfig();
     fetchEmployees();
     fetchFocusOptions();
-    fetchManifesto();
   }, [session, status, router]);
+
+  // Fetch tab-specific data when activeTab changes
+  useEffect(() => {
+    if (status === 'loading' || !session) return;
+    
+    if (activeTab === 'manifesto') {
+      fetchManifesto();
+    } else if (activeTab === 'longterm') {
+      fetchLongTermData();
+    } else if (activeTab === 'data') {
+      fetchPartners();
+    }
+    // 'current' tab uses already loaded goals data, no additional fetch needed
+  }, [activeTab, session, status]);
 
   const fetchQuarterInfo = async () => {
     try {
