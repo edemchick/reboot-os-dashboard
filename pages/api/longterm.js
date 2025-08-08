@@ -64,20 +64,24 @@ export default async function handler(req, res) {
       };
     });
 
-    // Filter out any items that don't have the expected types
-    const validTypes = ['5 Year Vision', '3 Year Picture', 'Annual Plan'];
-    const filteredGoals = transformedGoals.filter(goal => validTypes.includes(goal.type));
+    // Filter out any items that don't have the expected types (flexible matching)
+    const filteredGoals = transformedGoals.filter(goal => 
+      goal.type.includes('5 Year Vision') || 
+      goal.type.includes('3 Year Picture') || 
+      goal.type.includes('Annual Plan')
+    );
 
-    // Sort by type order: 5 Year Vision, 3 Year Picture, Annual Plan
-    const typeOrder = {
-      '5 Year Vision': 1,
-      '3 Year Picture': 2,
-      'Annual Plan': 3
+    // Sort by type order: 5 Year Vision, 3 Year Picture, Annual Plan (flexible matching)
+    const getTypeOrder = (type) => {
+      if (type.includes('5 Year Vision')) return 1;
+      if (type.includes('3 Year Picture')) return 2;
+      if (type.includes('Annual Plan')) return 3;
+      return 999;
     };
 
     filteredGoals.sort((a, b) => {
-      const orderA = typeOrder[a.type] || 999;
-      const orderB = typeOrder[b.type] || 999;
+      const orderA = getTypeOrder(a.type);
+      const orderB = getTypeOrder(b.type);
       
       if (orderA !== orderB) {
         return orderA - orderB;
