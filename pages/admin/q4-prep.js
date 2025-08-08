@@ -493,11 +493,11 @@ export default function Q4PrepPage() {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.push('/admin')}
+              onClick={() => router.push('/')}
               className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />
-              Back to Admin
+              Back to Dashboard
             </button>
             <div className="h-6 w-px bg-gray-300"></div>
             <h1 className="text-xl font-semibold text-gray-900">{getNextQuarter(currentQuarter)} Preparation</h1>
