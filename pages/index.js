@@ -209,9 +209,10 @@ export default function Dashboard() {
     
     // Update URL without triggering a page reload
     if (typeof window !== 'undefined') {
-      const url = new URL(window.location);
-      url.searchParams.set('tab', tab);
-      window.history.pushState({}, '', url);
+      const urlParams = new URLSearchParams(window.location.search);
+      urlParams.set('tab', tab);
+      const newUrl = window.location.pathname + '?' + urlParams.toString();
+      window.history.pushState({}, '', newUrl);
     }
     
     if (tab === 'manifesto') {
