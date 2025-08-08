@@ -866,7 +866,7 @@ export default function Dashboard() {
               )}
             </div>
           </>
-        )
+          )
         ) : activeTab === 'longterm' ? (
           longTermLoading ? (
             <div className="text-center py-12">
@@ -1069,7 +1069,7 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Carry Forward Modal */}
