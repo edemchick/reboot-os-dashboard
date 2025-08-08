@@ -31,9 +31,9 @@ export default async function handler(req, res) {
     const currentHour = easternTime.getHours();
     const currentTime = `${currentHour.toString().padStart(2, '0')}:${easternTime.getMinutes().toString().padStart(2, '0')}`;
     
-    // Check if it's the right day and 10am Eastern (when the cron runs)
+    // Check if it's the right day and around 10am Eastern (handle DST/Standard Time)
     const isRightDay = currentDay === schedule.day;
-    const isScheduledTime = currentHour === 10; // Always 10am Eastern
+    const isScheduledTime = currentHour >= 9 && currentHour <= 11; // 9-11 AM Eastern to handle timezone changes
     
     if (isRightDay && isScheduledTime) {
       console.log('Triggering scheduled check-ins:', {
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
           message: 'Weekly check-ins sent successfully',
           sent: true,
           scheduledDay: schedule.day,
-          scheduledTime: '10:00 AM Eastern',
+          scheduledTime: '9-11 AM Eastern (handles DST)',
           currentTime: currentTime,
           slackResponse: result
         });
@@ -68,10 +68,10 @@ export default async function handler(req, res) {
       }
     } else {
       return res.status(200).json({ 
-        message: `Not the right time. Current: ${currentDay} ${currentTime}, Scheduled: ${schedule.day} 10:00 AM Eastern`,
+        message: `Not the right time. Current: ${currentDay} ${currentTime}, Scheduled: ${schedule.day} 9-11 AM Eastern`,
         sent: false,
         scheduledDay: schedule.day,
-        scheduledTime: '10:00 AM Eastern',
+        scheduledTime: '9-11 AM Eastern (handles DST)',
         currentDay: currentDay,
         currentTime: currentTime,
         isRightDay,
