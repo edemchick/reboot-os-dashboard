@@ -682,6 +682,14 @@ export default function Q4PrepPage() {
                                 setShowCarryForwardModal(true);
                               } else {
                                 updateGoalStatus(goal.id, 'In Progress');
+                                // Clear the carry forward action state when unchecking
+                                setGoalActions(prev => ({
+                                  ...prev,
+                                  [goal.id]: {
+                                    ...prev[goal.id],
+                                    carryForward: false
+                                  }
+                                }));
                               }
                             }}
                           />
