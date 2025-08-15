@@ -361,9 +361,15 @@ export default async function handler(req, res) {
         res.status(200).end();
         
         // Handle check-in submission asynchronously
+        console.log('🚀 Starting async check-in submission with channelId:', channelId);
         handleCheckinSubmission(slack, payload, channelId)
-          .then(() => console.log('Check-in submission handled successfully'))
-          .catch(error => console.error('Check-in submission error:', error));
+          .then(() => console.log('✅ Check-in submission handled successfully'))
+          .catch(error => {
+            console.error('❌ Check-in submission error:', error);
+            console.error('Error name:', error.name);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+          });
         
         return;
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'partner_update') {
@@ -863,8 +869,15 @@ function createSubmissionConfirmationModal(goalData, submittedKRs) {
 }
 
 async function handleCheckinSubmission(slack, payload, channelId) {
+  console.log('🎯 handleCheckinSubmission started');
+  console.log('📍 Channel ID received:', channelId);
+  console.log('👤 User:', payload.user.id, payload.user.name);
+  
   const goalData = JSON.parse(payload.view.private_metadata);
   const values = payload.view.state.values;
+  
+  console.log('📋 Goal data:', goalData.goalTitle);
+  console.log('📊 Form values keys:', Object.keys(values));
   
   // Extract form responses
   const wentWell = values.went_well.went_well_input.value;
@@ -932,7 +945,10 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     ]
   };
   
+  console.log('📨 About to post message to channel:', channelId);
+  console.log('📝 Message summary:', summaryMessage.text);
   await slack.chat.postMessage(summaryMessage);
+  console.log('✅ Message posted successfully to channel');
   
   // Update progress in Notion
   try {
