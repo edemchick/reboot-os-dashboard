@@ -357,11 +357,15 @@ export default async function handler(req, res) {
         const channelId = process.env.SLACK_CHANNEL_ID;
         const slack = new WebClient(slackToken);
         
-        // Handle check-in submission
-        await handleCheckinSubmission(slack, payload, channelId);
-        console.log('Check-in submission handled successfully');
+        // Respond to Slack immediately to prevent timeout
+        res.status(200).end();
         
-        return res.status(200).end();
+        // Handle check-in submission asynchronously
+        handleCheckinSubmission(slack, payload, channelId)
+          .then(() => console.log('Check-in submission handled successfully'))
+          .catch(error => console.error('Check-in submission error:', error));
+        
+        return;
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'partner_update') {
         console.log('🤝 Processing partner update submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
