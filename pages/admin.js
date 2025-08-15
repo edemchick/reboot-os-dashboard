@@ -829,7 +829,7 @@ export default function AdminPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Employee Configuration
-                  <span className="text-xs text-gray-500 ml-2">(Name, Slack Name, Notion User ID, and Email)</span>
+                  <span className="text-xs text-gray-500 ml-2">(Name, Slack Name, Notion User ID, and Email) - Updated</span>
                 </label>
                 {employeeConfig ? (
                   <div className="space-y-3">
