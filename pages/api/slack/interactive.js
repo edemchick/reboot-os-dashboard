@@ -33,7 +33,17 @@ async function processSlackInteraction(req) {
     console.log('Payload type:', payload.type);
     console.log('Payload keys:', Object.keys(payload));
     
-    const slack = new WebClient(slackToken);
+    // Configure WebClient with retry and timeout settings for better reliability
+    const slack = new WebClient(slackToken, {
+      retryConfig: {
+        retries: 3,
+        factor: 2,
+        minTimeout: 1000,
+        maxTimeout: 30000
+      },
+      timeout: 30000, // 30 second timeout
+      agent: undefined // Use default agent, let Node.js handle connection pooling
+    });
 
     if (payload.type === 'block_actions') {
       // Handle button clicks
@@ -249,12 +259,18 @@ export const config = {
 
 export default async function handler(req, res) {
   console.log('🚨🚨🚨 === SLACK INTERACTIVE API CALLED === 🚨🚨🚨');
+  console.log('🚨🚨🚨 === TIMESTAMP:', new Date().toISOString(), '=== 🚨🚨🚨');
   console.log('🕐 Timestamp:', new Date().toISOString());
   console.log('📝 Method:', req.method);
   console.log('📋 Content-Type:', req.headers['content-type']);
   console.log('📊 Raw body type:', typeof req.body);
   console.log('📦 Raw body:', JSON.stringify(req.body, null, 2));
   console.log('🚨🚨🚨 === END INITIAL LOG === 🚨🚨🚨');
+  
+  // Force flush logs immediately
+  if (typeof console.flush === 'function') {
+    console.flush();
+  }
   
   
   // Acknowledge Slack immediately to prevent timeout
@@ -276,7 +292,16 @@ export default async function handler(req, res) {
       if (payload.type === 'view_submission' && payload.view.callback_id === 'goal_approval') {
         const slackToken = process.env.SLACK_BOT_TOKEN;
         const channelId = process.env.SLACK_CHANNEL_ID;
-        const slack = new WebClient(slackToken);
+        const slack = new WebClient(slackToken, {
+          retryConfig: {
+            retries: 3,
+            factor: 2,
+            minTimeout: 1000,
+            maxTimeout: 30000
+          },
+          timeout: 30000,
+          agent: undefined
+        });
         
         const goalData = JSON.parse(payload.view.private_metadata);
         const values = payload.view.state.values;
@@ -355,7 +380,16 @@ export default async function handler(req, res) {
         console.log('📅 Processing check-in submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
         const channelId = process.env.SLACK_CHANNEL_ID;
-        const slack = new WebClient(slackToken);
+        const slack = new WebClient(slackToken, {
+          retryConfig: {
+            retries: 3,
+            factor: 2,
+            minTimeout: 1000,
+            maxTimeout: 30000
+          },
+          timeout: 30000,
+          agent: undefined
+        });
         
         // Respond to Slack immediately to prevent timeout
         res.status(200).end();
@@ -363,19 +397,42 @@ export default async function handler(req, res) {
         // Handle check-in submission asynchronously
         console.log('🚀 Starting async check-in submission with channelId:', channelId);
         handleCheckinSubmission(slack, payload, channelId)
-          .then(() => console.log('✅ Check-in submission handled successfully'))
+          .then(() => {
+            console.log('✅ Check-in submission handled successfully');
+            console.log('✅ FINAL SUCCESS - all operations completed');
+          })
           .catch(error => {
             console.error('❌ Check-in submission error:', error);
             console.error('Error name:', error.name);
             console.error('Error message:', error.message);
             console.error('Error stack:', error.stack);
+            console.error('❌ FINAL ERROR - submission failed completely');
+            
+            // Send error DM to user as fallback
+            try {
+              slack.chat.postMessage({
+                channel: payload.user.id,
+                text: `❌ Sorry, there was an error processing your goal update. Please try again or contact support. Error: ${error.message}`
+              });
+            } catch (dmError) {
+              console.error('Failed to send error DM:', dmError);
+            }
           });
         
         return;
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'partner_update') {
         console.log('🤝 Processing partner update submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
-        const slack = new WebClient(slackToken);
+        const slack = new WebClient(slackToken, {
+          retryConfig: {
+            retries: 3,
+            factor: 2,
+            minTimeout: 1000,
+            maxTimeout: 30000
+          },
+          timeout: 30000,
+          agent: undefined
+        });
         
         const partnerData = JSON.parse(payload.view.private_metadata);
         const values = payload.view.state.values;
@@ -403,7 +460,16 @@ export default async function handler(req, res) {
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'manager_feedback') {
         console.log('🔄 Processing manager feedback submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
-        const slack = new WebClient(slackToken);
+        const slack = new WebClient(slackToken, {
+          retryConfig: {
+            retries: 3,
+            factor: 2,
+            minTimeout: 1000,
+            maxTimeout: 30000
+          },
+          timeout: 30000,
+          agent: undefined
+        });
         
         const feedbackData = JSON.parse(payload.view.private_metadata);
         const values = payload.view.state.values;
@@ -459,7 +525,16 @@ export default async function handler(req, res) {
         return res.status(200).end();
       } else if (payload.type === 'block_actions') {
         const slackToken = process.env.SLACK_BOT_TOKEN;
-        const slack = new WebClient(slackToken);
+        const slack = new WebClient(slackToken, {
+          retryConfig: {
+            retries: 3,
+            factor: 2,
+            minTimeout: 1000,
+            maxTimeout: 30000
+          },
+          timeout: 30000,
+          agent: undefined
+        });
         const action = payload.actions[0];
         
         if (action.action_id === 'approve_goal') {
@@ -947,8 +1022,63 @@ async function handleCheckinSubmission(slack, payload, channelId) {
   
   console.log('📨 About to post message to channel:', channelId);
   console.log('📝 Message summary:', summaryMessage.text);
-  await slack.chat.postMessage(summaryMessage);
-  console.log('✅ Message posted successfully to channel');
+  
+  // Validate channel ID
+  if (!channelId) {
+    console.error('❌ CRITICAL: Channel ID is undefined or empty!');
+    console.error('Environment variables:', {
+      SLACK_CHANNEL_ID: process.env.SLACK_CHANNEL_ID,
+      SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN ? 'SET' : 'NOT SET'
+    });
+    throw new Error('Channel ID is not configured');
+  }
+  
+  if (!channelId.startsWith('C')) {
+    console.warn('⚠️ Channel ID format warning - expected to start with "C", got:', channelId);
+  }
+  
+  // Retry logic with exponential backoff for network issues
+  let attempt = 0;
+  const maxAttempts = 3;
+  let lastError;
+  
+  while (attempt < maxAttempts) {
+    try {
+      attempt++;
+      console.log(`🚀 Attempt ${attempt}/${maxAttempts} - Calling slack.chat.postMessage`);
+      console.log('📤 Message payload:', JSON.stringify(summaryMessage, null, 2));
+      
+      const result = await slack.chat.postMessage(summaryMessage);
+      console.log('✅ Message posted successfully to channel');
+      console.log('📊 Slack API response:', JSON.stringify(result, null, 2));
+      break; // Success, exit retry loop
+      
+    } catch (slackError) {
+      lastError = slackError;
+      console.error(`❌ Attempt ${attempt}/${maxAttempts} failed:`, slackError.message);
+      
+      // Check if it's a network/TLS error that we should retry
+      const isRetryableError = slackError.message?.includes('network socket disconnected') ||
+                              slackError.message?.includes('TLS connection') ||
+                              slackError.message?.includes('ECONNRESET') ||
+                              slackError.message?.includes('ETIMEDOUT') ||
+                              slackError.code === 'ENOTFOUND';
+      
+      if (!isRetryableError || attempt === maxAttempts) {
+        console.error('❌ Final error - not retrying:', slackError);
+        console.error('Error details:', slackError.message);
+        console.error('Error code:', slackError.code);
+        console.error('Error data:', slackError.data);
+        console.error('Full error object:', JSON.stringify(slackError, null, 2));
+        throw slackError;
+      }
+      
+      // Wait before retrying (exponential backoff)
+      const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+      console.log(`⏳ Waiting ${delay}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
   
   // Update progress in Notion
   try {
