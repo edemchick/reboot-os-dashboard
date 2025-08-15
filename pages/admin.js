@@ -443,7 +443,7 @@ export default function AdminPage() {
               Back to Dashboard
             </button>
             <div className="h-6 w-px bg-gray-300"></div>
-            <h1 className="text-xl font-semibold text-gray-900">Admin Settings</h1>
+            <h1 className="text-xl font-semibold text-gray-900">Admin Settings - DEPLOYMENT TEST</h1>
           </div>
         </div>
       </div>
