@@ -835,7 +835,7 @@ export default function AdminPage() {
                   <div className="space-y-3">
                     {employeeConfig.employees.map((employee, index) => (
                       <div key={index} className="flex gap-2 items-start">
-                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                        <div className="flex-1 grid grid-cols-4 gap-2">
                           <input
                             type="text"
                             value={employee.name}
@@ -848,7 +848,7 @@ export default function AdminPage() {
                             value={employee.slackName || ''}
                             onChange={(e) => updateEmployee(index, 'slackName', e.target.value)}
                             placeholder="Slack Name (optional)"
-                            className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            className="px-3 py-2 border-2 border-blue-400 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-blue-50"
                           />
                           <input
                             type="text"
