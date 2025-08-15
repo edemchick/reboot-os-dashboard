@@ -270,7 +270,7 @@ export default function AdminPage() {
   const addEmployee = () => {
     setEmployeeConfig(prev => ({
       ...prev,
-      employees: [...prev.employees, { name: '', notionUserId: '', email: '' }]
+      employees: [...prev.employees, { name: '', slackName: '', notionUserId: '', email: '' }]
     }));
   };
 
@@ -829,18 +829,25 @@ export default function AdminPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Employee Configuration
-                  <span className="text-xs text-gray-500 ml-2">(Name, Notion User ID, and Email)</span>
+                  <span className="text-xs text-gray-500 ml-2">(Name, Slack Name, Notion User ID, and Email)</span>
                 </label>
                 {employeeConfig ? (
                   <div className="space-y-3">
                     {employeeConfig.employees.map((employee, index) => (
                       <div key={index} className="flex gap-2 items-start">
-                        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
                           <input
                             type="text"
                             value={employee.name}
                             onChange={(e) => updateEmployee(index, 'name', e.target.value)}
                             placeholder="Full Name"
+                            className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <input
+                            type="text"
+                            value={employee.slackName || ''}
+                            onChange={(e) => updateEmployee(index, 'slackName', e.target.value)}
+                            placeholder="Slack Name (optional)"
                             className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                           />
                           <input
@@ -889,8 +896,9 @@ export default function AdminPage() {
                   <div className="text-gray-500">Loading employee configuration...</div>
                 )}
                 <div className="text-xs text-gray-500 mt-2">
-                  <p>• Find Notion User IDs by checking existing goal assignments in your Notion database</p>
-                  <p>• These mappings are used for goal ownership and carry-forward functionality</p>
+                  <p>• <strong>Slack Name:</strong> Alternative name to try when looking up users in Slack (e.g., "Bob" instead of "Robert")</p>
+                  <p>• <strong>Notion User ID:</strong> Find these by checking existing goal assignments in your Notion database</p>
+                  <p>• These mappings are used for goal ownership, Slack check-ins, and carry-forward functionality</p>
                 </div>
               </div>
 

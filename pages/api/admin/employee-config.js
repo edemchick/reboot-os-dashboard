@@ -21,6 +21,7 @@ const DEFAULT_EMPLOYEE_CONFIG = {
     },
     {
       name: 'Robert Calise',
+      slackName: 'Bob Calise',
       notionUserId: '6c9ff824-2dd2-4e19-b5b8-6051d56966fe',
       email: 'rcalise@rebootmotion.com'
     },
