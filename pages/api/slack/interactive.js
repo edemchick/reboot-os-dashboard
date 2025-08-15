@@ -391,35 +391,40 @@ export default async function handler(req, res) {
           agent: undefined
         });
         
-        // Respond to Slack immediately to prevent timeout
-        res.status(200).end();
+        // Handle check-in submission synchronously to prevent function termination
+        console.log('🚀 Starting check-in submission with channelId:', channelId);
         
-        // Handle check-in submission asynchronously
-        console.log('🚀 Starting async check-in submission with channelId:', channelId);
-        handleCheckinSubmission(slack, payload, channelId)
-          .then(() => {
-            console.log('✅ Check-in submission handled successfully');
-            console.log('✅ FINAL SUCCESS - all operations completed');
-          })
-          .catch(error => {
-            console.error('❌ Check-in submission error:', error);
-            console.error('Error name:', error.name);
-            console.error('Error message:', error.message);
-            console.error('Error stack:', error.stack);
-            console.error('❌ FINAL ERROR - submission failed completely');
-            
-            // Send error DM to user as fallback
-            try {
-              slack.chat.postMessage({
-                channel: payload.user.id,
-                text: `❌ Sorry, there was an error processing your goal update. Please try again or contact support. Error: ${error.message}`
-              });
-            } catch (dmError) {
-              console.error('Failed to send error DM:', dmError);
-            }
-          });
+        // Add timeout protection (Vercel has 10s timeout on hobby plan)
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Function timeout - operation took too long')), 8000)
+        );
         
-        return;
+        try {
+          await Promise.race([
+            handleCheckinSubmission(slack, payload, channelId),
+            timeoutPromise
+          ]);
+          console.log('✅ Check-in submission handled successfully');
+          console.log('✅ FINAL SUCCESS - all operations completed');
+        } catch (error) {
+          console.error('❌ Check-in submission error:', error);
+          console.error('Error name:', error.name);
+          console.error('Error message:', error.message);
+          console.error('Error stack:', error.stack);
+          console.error('❌ FINAL ERROR - submission failed completely');
+          
+          // Send error DM to user as fallback
+          try {
+            await slack.chat.postMessage({
+              channel: payload.user.id,
+              text: `❌ Sorry, there was an error processing your goal update. Please try again or contact support. Error: ${error.message}`
+            });
+          } catch (dmError) {
+            console.error('Failed to send error DM:', dmError);
+          }
+        }
+        
+        return res.status(200).end();
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'partner_update') {
         console.log('🤝 Processing partner update submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
@@ -1037,44 +1042,39 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     console.warn('⚠️ Channel ID format warning - expected to start with "C", got:', channelId);
   }
   
-  // Retry logic with exponential backoff for network issues
+  // Simple retry with shorter delays for serverless environment
   let attempt = 0;
-  const maxAttempts = 3;
+  const maxAttempts = 2; // Reduced attempts to stay within timeout
   let lastError;
   
   while (attempt < maxAttempts) {
     try {
       attempt++;
       console.log(`🚀 Attempt ${attempt}/${maxAttempts} - Calling slack.chat.postMessage`);
-      console.log('📤 Message payload:', JSON.stringify(summaryMessage, null, 2));
       
-      const result = await slack.chat.postMessage(summaryMessage);
+      // Add timeout to the Slack API call itself
+      const slackPromise = slack.chat.postMessage(summaryMessage);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Slack API timeout')), 5000)
+      );
+      
+      const result = await Promise.race([slackPromise, timeoutPromise]);
       console.log('✅ Message posted successfully to channel');
-      console.log('📊 Slack API response:', JSON.stringify(result, null, 2));
+      console.log('📊 Slack API response success:', result.ok);
       break; // Success, exit retry loop
       
     } catch (slackError) {
       lastError = slackError;
       console.error(`❌ Attempt ${attempt}/${maxAttempts} failed:`, slackError.message);
       
-      // Check if it's a network/TLS error that we should retry
-      const isRetryableError = slackError.message?.includes('network socket disconnected') ||
-                              slackError.message?.includes('TLS connection') ||
-                              slackError.message?.includes('ECONNRESET') ||
-                              slackError.message?.includes('ETIMEDOUT') ||
-                              slackError.code === 'ENOTFOUND';
-      
-      if (!isRetryableError || attempt === maxAttempts) {
+      if (attempt === maxAttempts) {
         console.error('❌ Final error - not retrying:', slackError);
-        console.error('Error details:', slackError.message);
-        console.error('Error code:', slackError.code);
-        console.error('Error data:', slackError.data);
         console.error('Full error object:', JSON.stringify(slackError, null, 2));
         throw slackError;
       }
       
-      // Wait before retrying (exponential backoff)
-      const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+      // Short wait before retry
+      const delay = 1000; // Just 1 second
       console.log(`⏳ Waiting ${delay}ms before retry...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
