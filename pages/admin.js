@@ -896,7 +896,7 @@ export default function AdminPage() {
                   <div className="text-gray-500">Loading employee configuration...</div>
                 )}
                 <div className="text-xs text-gray-500 mt-2">
-                  <p>• <strong>Slack Name:</strong> Alternative name to try when looking up users in Slack (e.g., "Bob" instead of "Robert")</p>
+                  <p>• <strong>Slack Name:</strong> Alternative name to try when looking up users in Slack (e.g., "Bob" instead of "Robert") - helps with check-in delivery</p>
                   <p>• <strong>Notion User ID:</strong> Find these by checking existing goal assignments in your Notion database</p>
                   <p>• These mappings are used for goal ownership, Slack check-ins, and carry-forward functionality</p>
                 </div>
