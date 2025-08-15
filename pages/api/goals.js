@@ -43,7 +43,10 @@ export default async function handler(req, res) {
       if (fs.existsSync(employeeConfigPath)) {
         const employeeConfig = JSON.parse(fs.readFileSync(employeeConfigPath, 'utf8'));
         userIdToName = employeeConfig.employees.reduce((acc, employee) => {
-          acc[employee.notionUserId] = employee.name;
+          acc[employee.notionUserId] = {
+            name: employee.name,
+            slackName: employee.slackName || employee.name // Use slackName if available, fallback to name
+          };
           return acc;
         }, {});
       }
@@ -54,11 +57,11 @@ export default async function handler(req, res) {
     // Fallback mapping if config file doesn't exist or fails to load
     if (Object.keys(userIdToName).length === 0) {
       userIdToName = {
-        '0e594686-ffd9-424b-9daa-0306638a2221': 'Jimmy Buffi',
-        '46ee46c2-f482-48a5-8078-95cfc93815a1': 'Evan Demchick',
-        '6c9ff824-2dd2-4e19-b5b8-6051d56966fe': 'Robert Calise',
-        '33227521-8428-4238-94e0-53401caa529b': 'Creagor Elsom',
-        '9b1d8a2c-2dfe-4fe7-a9a4-9fb330396bd3': 'Jacob Howenstein'
+        '0e594686-ffd9-424b-9daa-0306638a2221': { name: 'Jimmy Buffi', slackName: 'Jimmy Buffi' },
+        '46ee46c2-f482-48a5-8078-95cfc93815a1': { name: 'Evan Demchick', slackName: 'Evan Demchick' },
+        '6c9ff824-2dd2-4e19-b5b8-6051d56966fe': { name: 'Robert Calise', slackName: 'Bob Calise' },
+        '33227521-8428-4238-94e0-53401caa529b': { name: 'Creagor Elsom', slackName: 'Creagor Elsom' },
+        '9b1d8a2c-2dfe-4fe7-a9a4-9fb330396bd3': { name: 'Jacob Howenstein', slackName: 'Jacob Howenstein' }
       };
     }
 
@@ -82,7 +85,7 @@ export default async function handler(req, res) {
       
       // Use the ID mapping as fallback
       if (person.id && userIdToName[person.id]) {
-        return userIdToName[person.id];
+        return userIdToName[person.id].name || userIdToName[person.id];
       }
       
       // If we still don't have a name, return ID for identification

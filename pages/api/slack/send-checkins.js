@@ -123,6 +123,30 @@ export default async function handler(req, res) {
 // Helper function to lookup Slack user ID by name
 async function lookupSlackUserId(ownerName, slack) {
   try {
+    // Load employee config to get alternative Slack names
+    let employeeConfig = null;
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const employeeConfigPath = path.join(process.cwd(), 'config', 'employee-config.json');
+      
+      if (fs.existsSync(employeeConfigPath)) {
+        employeeConfig = JSON.parse(fs.readFileSync(employeeConfigPath, 'utf8'));
+      }
+    } catch (error) {
+      console.error('Error loading employee config for Slack lookup:', error);
+    }
+    
+    // Find alternative name if available
+    let alternativeName = null;
+    if (employeeConfig) {
+      const employee = employeeConfig.employees.find(emp => emp.name === ownerName);
+      if (employee && employee.slackName && employee.slackName !== employee.name) {
+        alternativeName = employee.slackName;
+        console.log(`Found alternative Slack name for ${ownerName}: ${alternativeName}`);
+      }
+    }
+    
     // Get all users and log them for debugging
     const result = await slack.users.list();
     console.log('Available Slack users:');
@@ -132,20 +156,59 @@ async function lookupSlackUserId(ownerName, slack) {
       }
     });
     
-    // Look for user by various name matches
-    const user = result.members.find(member => 
-      member.real_name === ownerName || 
-      member.display_name === ownerName ||
-      member.profile?.display_name === ownerName ||
-      member.name === ownerName.toLowerCase().replace(/\s+/g, '') ||
-      member.profile?.real_name === ownerName
-    );
+    // Helper function to check if a name matches a Slack member
+    const nameMatches = (nameToCheck, member) => {
+      const realName = member.real_name || '';
+      const displayName = member.profile?.display_name || '';
+      const username = member.name || '';
+      const profileRealName = member.profile?.real_name || '';
+      
+      // Exact matches
+      if (realName === nameToCheck || displayName === nameToCheck || profileRealName === nameToCheck) {
+        return true;
+      }
+      
+      // Username match (lowercase, no spaces)
+      if (username === nameToCheck.toLowerCase().replace(/\s+/g, '')) {
+        return true;
+      }
+      
+      // Partial name matching for common variations
+      const nameParts = nameToCheck.toLowerCase().split(' ');
+      const realNameParts = realName.toLowerCase().split(' ');
+      
+      // Check if all parts of name exist in Slack real name
+      if (nameParts.length >= 2 && realNameParts.length >= 2) {
+        const firstNameMatch = nameParts[0] === realNameParts[0];
+        const lastNameMatch = nameParts[nameParts.length - 1] === realNameParts[realNameParts.length - 1];
+        
+        if (firstNameMatch && lastNameMatch) {
+          return true;
+        }
+      }
+      
+      return false;
+    };
+    
+    // Try to find user by primary name first, then alternative name
+    let user = result.members.find(member => nameMatches(ownerName, member));
+    
+    if (!user && alternativeName) {
+      console.log(`Primary name "${ownerName}" not found, trying alternative name "${alternativeName}"`);
+      user = result.members.find(member => nameMatches(alternativeName, member));
+    }
     
     if (user) {
-      console.log(`Found user: ${ownerName} -> ${user.id} (${user.real_name})`);
+      console.log(`✅ Found user: ${ownerName} -> ${user.id} (${user.real_name})`);
       return user.id;
     } else {
-      console.log(`No user found for: ${ownerName}`);
+      console.log(`❌ No user found for: "${ownerName}"`);
+      console.log('🔍 Tried matching against these users:');
+      result.members.forEach(member => {
+        if (!member.is_bot && !member.deleted) {
+          console.log(`  - Real: "${member.real_name}" | Display: "${member.profile?.display_name || 'none'}" | Username: "${member.name}"`);
+        }
+      });
       return null;
     }
   } catch (error) {
