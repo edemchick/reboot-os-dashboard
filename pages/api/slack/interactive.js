@@ -1956,6 +1956,10 @@ async function handlePartnerUpdateSubmission(slack, payload) {
   });
   
   try {
+    // Get the submitting user's Notion ID
+    const submittedByNotionId = await getNotionUserIdFromSlack(user);
+    console.log('🔍 Submitting user Notion ID:', submittedByNotionId);
+    
     // Save to Notion partner updates database
     const notionToken = process.env.NOTION_TOKEN;
     const updatesDbId = process.env.NOTION_PARTNER_UPDATES_DATABASE_ID;
@@ -1999,7 +2003,7 @@ async function handlePartnerUpdateSubmission(slack, payload) {
           rich_text: [{ text: { content: actionItems } }]
         },
         'Submitted By': {
-          people: [{ id: '46ee46c2-f482-48a5-8078-95cfc93815a1' }]
+          people: [{ id: submittedByNotionId || '46ee46c2-f482-48a5-8078-95cfc93815a1' }]
         }
       }
     };
@@ -2061,6 +2065,64 @@ async function handlePartnerUpdateSubmission(slack, payload) {
     
     console.log('✅ Partner update saved to Notion successfully');
     
+    // Send notification to admin channel
+    const adminChannelId = 'C06ET1S9SNG'; // reboot_os_admin channel ID
+    try {
+      const healthTrend = healthScore > partnerData.currentHealthScore ? '📈' : 
+                         healthScore < partnerData.currentHealthScore ? '📉' : '➡️';
+      
+      await slack.chat.postMessage({
+        channel: adminChannelId,
+        text: `Partner scorecard submitted by ${user.real_name || user.name}`,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `*🤝 Partner Update from <@${user.id}>* ${healthTrend}`
+            }
+          },
+          {
+            type: "section",
+            fields: [
+              {
+                type: "mrkdwn",
+                text: `*Partner:*\n${partnerData.partnerName}`
+              },
+              {
+                type: "mrkdwn",
+                text: `*Health Score:*\n${partnerData.currentHealthScore}/10 → ${healthScore}/10`
+              }
+            ]
+          },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `*Key Updates:*\n${keyUpdates}`
+            }
+          },
+          ...(currentHurdles ? [{
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `*Current Hurdles:*\n${currentHurdles}`
+            }
+          }] : []),
+          ...(actionItems ? [{
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `*Action Items:*\n${actionItems}`
+            }
+          }] : [])
+        ]
+      });
+      console.log('📢 Admin channel notification sent successfully');
+    } catch (adminError) {
+      console.error('❌ Failed to send admin notification:', adminError);
+    }
+    
     // Send confirmation DM to user
     console.log('📨 Sending confirmation DM to user:', user.id);
     await slack.chat.postMessage({
@@ -2077,6 +2139,55 @@ async function handlePartnerUpdateSubmission(slack, payload) {
       channel: user.id,
       text: `❌ Sorry, there was an error saving your partner update for "${partnerData.partnerName}". Please try again or contact support.`
     });
+  }
+}
+
+// Helper function to get Notion user ID from Slack user
+async function getNotionUserIdFromSlack(slackUser) {
+  try {
+    // Load employee configuration
+    const fs = require('fs');
+    const path = require('path');
+    const configPath = path.join(process.cwd(), 'config', 'employee-config.json');
+    
+    if (!fs.existsSync(configPath)) {
+      console.error('Employee config file not found at:', configPath);
+      return null;
+    }
+    
+    const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const employees = configData.employees;
+    
+    console.log('🔍 Looking up Slack user:', slackUser.real_name || slackUser.name);
+    
+    // Try to match by real name first
+    const userRealName = slackUser.real_name || slackUser.name;
+    let employee = employees.find(emp => emp.name === userRealName);
+    
+    // If not found, try by slackName if it exists
+    if (!employee) {
+      employee = employees.find(emp => emp.slackName === userRealName);
+    }
+    
+    // If still not found, try partial matches
+    if (!employee) {
+      employee = employees.find(emp => 
+        emp.name.toLowerCase().includes(userRealName.toLowerCase()) ||
+        userRealName.toLowerCase().includes(emp.name.toLowerCase())
+      );
+    }
+    
+    if (employee && employee.notionUserId) {
+      console.log('✅ Found employee:', employee.name, 'Notion ID:', employee.notionUserId);
+      return employee.notionUserId;
+    } else {
+      console.warn('❌ No employee found for Slack user:', userRealName);
+      return null;
+    }
+    
+  } catch (error) {
+    console.error('Error getting Notion user ID:', error);
+    return null;
   }
 }
 
