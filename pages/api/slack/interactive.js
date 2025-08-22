@@ -391,7 +391,10 @@ export default async function handler(req, res) {
           agent: undefined
         });
         
-        // Handle check-in submission synchronously to prevent function termination
+        // Immediately acknowledge the modal submission to close it
+        res.status(200).json({});
+        
+        // Process check-in submission in background
         console.log('🚀 Starting check-in submission with channelId:', channelId);
         
         // Add timeout protection (Vercel has 10s timeout on hobby plan)
@@ -399,14 +402,14 @@ export default async function handler(req, res) {
           setTimeout(() => reject(new Error('Function timeout - operation took too long')), 8000)
         );
         
-        try {
-          await Promise.race([
-            handleCheckinSubmission(slack, payload, channelId),
-            timeoutPromise
-          ]);
+        // Process in background without blocking the response
+        Promise.race([
+          handleCheckinSubmission(slack, payload, channelId),
+          timeoutPromise
+        ]).then(() => {
           console.log('✅ Check-in submission handled successfully');
           console.log('✅ FINAL SUCCESS - all operations completed');
-        } catch (error) {
+        }).catch(async (error) => {
           console.error('❌ Check-in submission error:', error);
           console.error('Error name:', error.name);
           console.error('Error message:', error.message);
@@ -422,9 +425,9 @@ export default async function handler(req, res) {
           } catch (dmError) {
             console.error('Failed to send error DM:', dmError);
           }
-        }
+        });
         
-        return res.status(200).end();
+        return;
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'partner_update') {
         console.log('🤝 Processing partner update submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
