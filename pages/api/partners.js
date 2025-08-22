@@ -86,10 +86,14 @@ export default async function handler(req, res) {
         }
       }
       
-      // Extract last updated from rollup array
+      // Extract last updated from rollup (single date or array)
       const lastUpdatedRollup = properties['Last Updated']?.rollup;
       let lastUpdated = null;
-      if (lastUpdatedRollup?.type === 'array' && lastUpdatedRollup.array?.length > 0) {
+      if (lastUpdatedRollup?.date?.start) {
+        // Handle single date rollup (e.g., "Latest" aggregation)
+        lastUpdated = lastUpdatedRollup.date.start;
+      } else if (lastUpdatedRollup?.type === 'array' && lastUpdatedRollup.array?.length > 0) {
+        // Handle array rollup (legacy support)
         const dateItem = lastUpdatedRollup.array[0];
         if (dateItem?.type === 'date' && dateItem.date?.start) {
           lastUpdated = dateItem.date.start;
