@@ -973,7 +973,72 @@ async function handleCheckinSubmission(slack, payload, channelId) {
   const progressChange = newProgress - goalData.currentProgress;
   const progressEmoji = progressChange > 0 ? '📈' : progressChange < 0 ? '📉' : '➡️';
   
-  // Post summary to the channel
+  // UPDATE NOTION FIRST (MOST IMPORTANT)
+  try {
+    console.log('=== Updating Notion Progress FIRST ===');
+    console.log('Goal ID:', goalData.goalId);
+    console.log('Goal Title:', goalData.goalTitle);
+    console.log('New Progress:', newProgress);
+    console.log('Update Data:', { wentWell, challenges, completedKRs, nextWeekFocus });
+    
+    const notionToken = process.env.NOTION_TOKEN;
+    
+    const response = await fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${notionToken}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28'
+      },
+      body: JSON.stringify({
+        properties: {
+          Progress: {
+            number: newProgress / 100
+          },
+          'Latest Update Date': {
+            date: {
+              start: new Date().toISOString().split('T')[0]
+            }
+          },
+          'Latest Update - What Went Well': {
+            rich_text: [{ text: { content: wentWell } }]
+          },
+          'Latest Update - Challenges': {
+            rich_text: [{ text: { content: challenges } }]
+          },
+          'Latest Update - Completed KRs': {
+            rich_text: [{ text: { content: completedKRs } }]
+          },
+          'Latest Update - Next Week': {
+            rich_text: [{ text: { content: nextWeekFocus } }]
+          }
+        }
+      })
+    });
+
+    if (response.ok) {
+      console.log('✅ Notion progress and updates saved successfully');
+    } else {
+      const errorData = await response.text();
+      console.error('❌ Notion update failed:', response.status, errorData);
+      throw new Error(`Notion update failed: ${response.status} - ${errorData}`);
+    }
+    
+  } catch (error) {
+    console.error('Error updating Notion progress:', error);
+    // Send error DM to user and stop processing
+    try {
+      await slack.chat.postMessage({
+        channel: user.id,
+        text: `❌ Sorry, there was an error saving your update for "${goalData.goalTitle}". Please try again or contact support. Error: ${error.message}`
+      });
+    } catch (dmError) {
+      console.error('Failed to send error DM:', dmError);
+    }
+    throw error; // Re-throw to prevent Slack posting if Notion fails
+  }
+  
+  // Post summary to the channel (AFTER Notion success)
   const summaryMessage = {
     channel: channelId,
     text: `Goal update from ${user.name}`,
@@ -1082,70 +1147,6 @@ async function handleCheckinSubmission(slack, payload, channelId) {
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
-  
-  // Update progress in Notion
-  try {
-    console.log('=== Updating Notion Progress ===');
-    console.log('Goal ID:', goalData.goalId);
-    console.log('Goal Title:', goalData.goalTitle);
-    console.log('New Progress:', newProgress);
-    console.log('Update Data:', { wentWell, challenges, completedKRs, nextWeekFocus });
-    
-    const notionToken = process.env.NOTION_TOKEN;
-    
-    const response = await fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${notionToken}`,
-        'Content-Type': 'application/json',
-        'Notion-Version': '2022-06-28'
-      },
-      body: JSON.stringify({
-        properties: {
-          Progress: {
-            number: newProgress / 100
-          },
-          'Latest Update Date': {
-            date: {
-              start: new Date().toLocaleDateString('en-CA')
-            }
-          },
-          'Latest Update - What Went Well': {
-            rich_text: [{ text: { content: wentWell } }]
-          },
-          'Latest Update - Challenges': {
-            rich_text: [{ text: { content: challenges } }]
-          },
-          'Latest Update - Completed KRs': {
-            rich_text: [{ text: { content: completedKRs } }]
-          },
-          'Latest Update - Next Week': {
-            rich_text: [{ text: { content: nextWeekFocus } }]
-          }
-        }
-      })
-    });
-
-    if (response.ok) {
-      console.log('✅ Notion progress and updates saved successfully');
-    } else {
-      const errorData = await response.text();
-      console.error('❌ Notion update failed:', response.status, errorData);
-      console.error('Request body was:', JSON.stringify({
-        properties: {
-          Progress: { number: newProgress / 100 },
-          'Latest Update Date': { date: { start: new Date().toISOString().split('T')[0] } },
-          'Latest Update - What Went Well': { rich_text: [{ text: { content: wentWell } }] },
-          'Latest Update - Challenges': { rich_text: [{ text: { content: challenges } }] },
-          'Latest Update - Completed KRs': { rich_text: [{ text: { content: completedKRs } }] }
-        }
-      }, null, 2));
-    }
-    
-  } catch (error) {
-    console.error('Error updating Notion progress:', error);
-  }
-  
   // Send confirmation DM to user
   await slack.chat.postMessage({
     channel: user.id,
