@@ -988,6 +988,25 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     console.log('🌐 About to make Notion API request...');
     console.log('📡 URL:', `https://api.notion.com/v1/pages/${goalData.goalId}`);
     
+    // First, test basic Notion API connectivity with a simpler request
+    try {
+      console.log('🧪 Testing basic Notion API connectivity...');
+      const testResponse = await Promise.race([
+        fetch('https://api.notion.com/v1/users/me', {
+          headers: {
+            'Authorization': `Bearer ${notionToken}`,
+            'Content-Type': 'application/json',
+            'Notion-Version': '2022-06-28'
+          }
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Test API timeout')), 3000))
+      ]);
+      console.log('✅ Basic Notion API test successful:', testResponse.status);
+    } catch (testError) {
+      console.error('❌ Basic Notion API test failed:', testError.message);
+      throw new Error(`Notion API connectivity issue: ${testError.message}`);
+    }
+    
     // Use Promise.race for reliable timeout handling in serverless
     const fetchPromise = fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
       method: 'PATCH',
