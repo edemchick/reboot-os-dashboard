@@ -377,7 +377,7 @@ export default async function handler(req, res) {
         
         return res.status(200).end();
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'goal_checkin') {
-        console.log('🎯🎯🎯 GOALS CHECK-IN TRIGGERED - Processing submission...');
+        console.log('📅 Processing check-in submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
         const channelId = process.env.SLACK_CHANNEL_ID || 'C06ET1S9SNG'; // fallback to reboot_os_admin
         const slack = new WebClient(slackToken, {
@@ -425,7 +425,7 @@ export default async function handler(req, res) {
         
         return;
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'partner_update') {
-        console.log('🤝🤝🤝 PARTNER UPDATE TRIGGERED - Processing submission...');
+        console.log('🤝 Processing partner update submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
         const slack = new WebClient(slackToken, {
           retryConfig: {
@@ -456,17 +456,11 @@ export default async function handler(req, res) {
           actionItems
         });
         
-        // Immediately acknowledge the modal submission to close it
-        res.status(200).end();
+        // Handle partner update submission
+        await handlePartnerUpdateSubmission(slack, payload);
+        console.log('Partner update submission handled successfully');
         
-        // Handle partner update submission in background
-        handlePartnerUpdateSubmission(slack, payload).then(() => {
-          console.log('✅ Partner update submission handled successfully');
-        }).catch((error) => {
-          console.error('❌ Partner update error:', error.message);
-        });
-        
-        return;
+        return res.status(200).end();
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'manager_feedback') {
         console.log('🔄 Processing manager feedback submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
@@ -985,59 +979,45 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     
     const notionToken = process.env.NOTION_TOKEN;
     
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
-    
-    try {
-      const response = await fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${notionToken}`,
-          'Content-Type': 'application/json',
-          'Notion-Version': '2022-06-28'
-        },
-        body: JSON.stringify({
-          properties: {
-            Progress: {
-              number: newProgress / 100
-            },
-            'Latest Update Date': {
-              date: {
-                start: new Date().toISOString().split('T')[0]
-              }
-            },
-            'Latest Update - What Went Well': {
-              rich_text: [{ text: { content: wentWell } }]
-            },
-            'Latest Update - Challenges': {
-              rich_text: [{ text: { content: challenges } }]
-            },
-            'Latest Update - Completed KRs': {
-              rich_text: [{ text: { content: completedKRs } }]
-            },
-            'Latest Update - Next Week': {
-              rich_text: [{ text: { content: nextWeekFocus } }]
+    const response = await fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${notionToken}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28'
+      },
+      body: JSON.stringify({
+        properties: {
+          Progress: {
+            number: newProgress / 100
+          },
+          'Latest Update Date': {
+            date: {
+              start: new Date().toISOString().split('T')[0]
             }
+          },
+          'Latest Update - What Went Well': {
+            rich_text: [{ text: { content: wentWell } }]
+          },
+          'Latest Update - Challenges': {
+            rich_text: [{ text: { content: challenges } }]
+          },
+          'Latest Update - Completed KRs': {
+            rich_text: [{ text: { content: completedKRs } }]
+          },
+          'Latest Update - Next Week': {
+            rich_text: [{ text: { content: nextWeekFocus } }]
           }
-        }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
+        }
+      })
+    });
 
-      if (response.ok) {
-        console.log('✅ Notion progress and updates saved successfully');
-      } else {
-        const errorData = await response.text();
-        console.error('❌ Notion update failed:', response.status, errorData);
-        throw new Error(`Notion update failed: ${response.status} - ${errorData}`);
-      }
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      if (fetchError.name === 'AbortError') {
-        console.error('❌ Notion API timeout after 8 seconds');
-        throw new Error('Notion API timeout - please try again');
-      }
-      throw fetchError;
+    if (response.ok) {
+      console.log('✅ Notion progress and updates saved successfully');
+    } else {
+      const errorData = await response.text();
+      console.error('❌ Notion update failed:', response.status, errorData);
+      throw new Error(`Notion update failed: ${response.status} - ${errorData}`);
     }
     
   } catch (error) {
@@ -2034,7 +2014,7 @@ async function handlePartnerUpdateSubmission(slack, payload) {
     
     console.log('✅ Partner update saved to Notion successfully');
     
-    // Send simplified notification to admin channel (like goals)
+    // Send notification to admin channel
     const adminChannelId = 'C06ET1S9SNG'; // reboot_os_admin channel ID
     try {
       const healthTrend = healthScore > partnerData.currentHealthScore ? '📈' : 
@@ -2042,7 +2022,50 @@ async function handlePartnerUpdateSubmission(slack, payload) {
       
       await slack.chat.postMessage({
         channel: adminChannelId,
-        text: `🤝 Partner update from <@${user.id}> for "${partnerData.partnerName}" (${partnerData.currentHealthScore}/10 → ${healthScore}/10) ${healthTrend}. Check dashboard for details: ${process.env.NEXTAUTH_URL || 'https://reboot-os-dashboard.vercel.app'}`
+        text: `Partner scorecard submitted by ${user.real_name || user.name}`,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `*🤝 Partner Update from <@${user.id}>* ${healthTrend}`
+            }
+          },
+          {
+            type: "section",
+            fields: [
+              {
+                type: "mrkdwn",
+                text: `*Partner:*\n${partnerData.partnerName}`
+              },
+              {
+                type: "mrkdwn",
+                text: `*Health Score:*\n${partnerData.currentHealthScore}/10 → ${healthScore}/10`
+              }
+            ]
+          },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `*Key Updates:*\n${keyUpdates}`
+            }
+          },
+          ...(currentHurdles ? [{
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `*Current Hurdles:*\n${currentHurdles}`
+            }
+          }] : []),
+          ...(actionItems ? [{
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `*Action Items:*\n${actionItems}`
+            }
+          }] : [])
+        ]
       });
       console.log('📢 Admin channel notification sent successfully');
     } catch (adminError) {
