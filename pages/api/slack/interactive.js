@@ -1915,13 +1915,18 @@ async function handlePartnerUpdateSubmission(slack, payload, channelId) {
   const values = payload.view.state.values;
   const user = payload.user;
   
+  console.log('📋 Partner data from modal:', JSON.stringify(partnerData, null, 2));
+  console.log('📊 Form values keys:', Object.keys(values));
+  
   // Extract form responses
+  console.log('🔢 Extracting health score...');
   const healthScore = parseInt(values.health_score.health_score_select.selected_option.value);
+  console.log('📝 Extracting text fields...');
   const keyUpdates = values.key_updates.key_updates_input.value;
   const currentHurdles = values.current_hurdles.current_hurdles_input.value || '';
   const actionItems = values.action_items.action_items_input.value || '';
-  
-  console.log('🤝 Partner update submission:', {
+
+  console.log('🤝 Partner update submission data extracted:', {
     partner: partnerData.partnerName,
     partnerId: partnerData.partnerId,
     healthScore,
@@ -1941,6 +1946,8 @@ async function handlePartnerUpdateSubmission(slack, payload, channelId) {
     });
     const submittedByNotionId = await getNotionUserIdFromSlack(user);
     console.log('🔍 Submitting user Notion ID lookup result:', submittedByNotionId);
+    
+    console.log('💾 Starting Notion database save...');
     
     // Save to Notion partner updates database
     const notionToken = process.env.NOTION_TOKEN;
@@ -2087,8 +2094,13 @@ async function handlePartnerUpdateSubmission(slack, payload, channelId) {
       console.error('❌ Failed to send confirmation DM:', dmError.message);
     }
     
+    console.log('🎉 All partner update operations completed successfully!');
+    
   } catch (error) {
-    console.error('Error saving partner update:', error);
+    console.error('❌❌❌ PARTNER UPDATE ERROR CAUGHT:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     
     // Send error message to user
     await slack.chat.postMessage({
