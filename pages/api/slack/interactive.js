@@ -4,7 +4,7 @@ async function processSlackInteraction(req) {
   console.log('🚨🚨🚨 === Processing Slack Interaction Async === 🚨🚨🚨');
   
   const slackToken = process.env.SLACK_BOT_TOKEN;
-  const channelId = process.env.SLACK_CHANNEL_ID;
+  const channelId = process.env.SLACK_CHANNEL_ID || 'C06ET1S9SNG'; // fallback to reboot_os_admin
   
   if (!slackToken) {
     console.error('SLACK_BOT_TOKEN not configured');
@@ -379,7 +379,7 @@ export default async function handler(req, res) {
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'goal_checkin') {
         console.log('📅 Processing check-in submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
-        const channelId = process.env.SLACK_CHANNEL_ID;
+        const channelId = process.env.SLACK_CHANNEL_ID || 'C06ET1S9SNG'; // fallback to reboot_os_admin
         const slack = new WebClient(slackToken, {
           retryConfig: {
             retries: 3,
@@ -1103,55 +1103,70 @@ async function handleCheckinSubmission(slack, payload, channelId) {
       SLACK_CHANNEL_ID: process.env.SLACK_CHANNEL_ID,
       SLACK_BOT_TOKEN: process.env.SLACK_BOT_TOKEN ? 'SET' : 'NOT SET'
     });
-    throw new Error('Channel ID is not configured');
+    console.warn('⚠️ Skipping channel notification due to missing SLACK_CHANNEL_ID');
+    // Don't throw error - just skip channel posting but continue with user DM
   }
   
-  if (!channelId.startsWith('C')) {
-    console.warn('⚠️ Channel ID format warning - expected to start with "C", got:', channelId);
-  }
-  
-  // Simple retry with shorter delays for serverless environment
-  let attempt = 0;
-  const maxAttempts = 2; // Reduced attempts to stay within timeout
-  let lastError;
-  
-  while (attempt < maxAttempts) {
-    try {
-      attempt++;
-      console.log(`🚀 Attempt ${attempt}/${maxAttempts} - Calling slack.chat.postMessage`);
-      
-      // Add timeout to the Slack API call itself
-      const slackPromise = slack.chat.postMessage(summaryMessage);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Slack API timeout')), 15000)
-      );
-      
-      const result = await Promise.race([slackPromise, timeoutPromise]);
-      console.log('✅ Message posted successfully to channel');
-      console.log('📊 Slack API response success:', result.ok);
-      break; // Success, exit retry loop
-      
-    } catch (slackError) {
-      lastError = slackError;
-      console.error(`❌ Attempt ${attempt}/${maxAttempts} failed:`, slackError.message);
-      
-      if (attempt === maxAttempts) {
-        console.error('❌ Final error - not retrying:', slackError);
-        console.error('Full error object:', JSON.stringify(slackError, null, 2));
-        throw slackError;
-      }
-      
-      // Short wait before retry
-      const delay = 1000; // Just 1 second
-      console.log(`⏳ Waiting ${delay}ms before retry...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+  // Only post to channel if channel ID is configured
+  if (channelId) {
+    if (!channelId.startsWith('C')) {
+      console.warn('⚠️ Channel ID format warning - expected to start with "C", got:', channelId);
     }
+    
+    // Simple retry with shorter delays for serverless environment
+    let attempt = 0;
+    const maxAttempts = 2; // Reduced attempts to stay within timeout
+    let lastError;
+    
+    while (attempt < maxAttempts) {
+      try {
+        attempt++;
+        console.log(`🚀 Attempt ${attempt}/${maxAttempts} - Calling slack.chat.postMessage`);
+        
+        // Add timeout to the Slack API call itself
+        const slackPromise = slack.chat.postMessage(summaryMessage);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Slack API timeout')), 15000)
+        );
+        
+        const result = await Promise.race([slackPromise, timeoutPromise]);
+        console.log('✅ Message posted successfully to channel');
+        console.log('📊 Slack API response success:', result.ok);
+        break; // Success, exit retry loop
+        
+      } catch (slackError) {
+        lastError = slackError;
+        console.error(`❌ Attempt ${attempt}/${maxAttempts} failed:`, slackError.message);
+        
+        if (attempt === maxAttempts) {
+          console.error('❌ Final error - not retrying:', slackError);
+          console.error('Full error object:', JSON.stringify(slackError, null, 2));
+          // Don't throw error - continue to user DM
+          console.warn('⚠️ Channel posting failed, but continuing with user DM');
+          break;
+        }
+        
+        // Short wait before retry
+        const delay = 1000; // Just 1 second
+        console.log(`⏳ Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  } else {
+    console.log('📢 No channel ID configured - skipping channel notification');
   }
   // Send confirmation DM to user
-  await slack.chat.postMessage({
-    channel: user.id,
-    text: `✅ Thanks for your update! Your progress for "${goalData.goalTitle}" has been updated to ${newProgress}%.`
-  });
+  try {
+    console.log('📨 Sending confirmation DM to user:', user.id, user.real_name || user.name);
+    const dmResult = await slack.chat.postMessage({
+      channel: user.id,
+      text: `✅ Thanks for your update! Your progress for "${goalData.goalTitle}" has been updated to ${newProgress}%.`
+    });
+    console.log('✅ Confirmation DM sent successfully:', dmResult.ok);
+  } catch (dmError) {
+    console.error('❌ Failed to send confirmation DM:', dmError.message);
+    console.error('User details:', { id: user.id, name: user.real_name || user.name });
+  }
 }
 
 async function handleFinalGoalSubmission(slack, payload, channelId, submittedKRs) {
