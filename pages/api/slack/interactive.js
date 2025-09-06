@@ -456,11 +456,42 @@ export default async function handler(req, res) {
           actionItems
         });
         
-        // Handle partner update submission
-        await handlePartnerUpdateSubmission(slack, payload);
-        console.log('Partner update submission handled successfully');
+        // Immediately acknowledge the modal submission to close it
+        res.status(200).end();
         
-        return res.status(200).end();
+        // Add channelId for admin notifications
+        const channelId = process.env.SLACK_CHANNEL_ID || 'C06ET1S9SNG'; // fallback to reboot_os_admin
+        
+        // Process partner update submission in background
+        console.log('🚀 Starting partner update submission with channelId:', channelId);
+        
+        // Process in background without artificial timeout - let Vercel handle function timeout
+        handlePartnerUpdateSubmission(slack, payload, channelId).then(() => {
+          console.log('✅ Partner update submission handled successfully');
+          console.log('✅ FINAL SUCCESS - all operations completed');
+        }).catch(async (error) => {
+          console.error('❌ Partner update submission error:', error);
+          console.error('Error name:', error.name);
+          console.error('Error message:', error.message);
+          console.error('Error stack:', error.stack);
+          console.error('❌ FINAL ERROR - submission failed completely');
+          
+          // Only send error DM if Notion write failed (the critical part)
+          if (error.message && error.message.includes('Notion')) {
+            try {
+              await slack.chat.postMessage({
+                channel: payload.user.id,
+                text: `❌ Sorry, there was an error saving your partner update. Please try again or contact support. Error: ${error.message}`
+              });
+            } catch (dmError) {
+              console.error('Failed to send error DM:', dmError);
+            }
+          } else {
+            console.log('⚠️ Non-critical error (likely Slack API), not sending error DM to user');
+          }
+        });
+        
+        return;
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'manager_feedback') {
         console.log('🔄 Processing manager feedback submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
@@ -1891,7 +1922,7 @@ function createPartnerUpdateModal(partnerData) {
   };
 }
 
-async function handlePartnerUpdateSubmission(slack, payload) {
+async function handlePartnerUpdateSubmission(slack, payload, channelId) {
   const partnerData = JSON.parse(payload.view.private_metadata);
   const values = payload.view.state.values;
   const user = payload.user;
@@ -1914,8 +1945,14 @@ async function handlePartnerUpdateSubmission(slack, payload) {
   
   try {
     // Get the submitting user's Notion ID
+    console.log('🔍 Looking up Notion ID for Slack user:', { 
+      id: user.id, 
+      name: user.name, 
+      real_name: user.real_name,
+      email: user.profile?.email 
+    });
     const submittedByNotionId = await getNotionUserIdFromSlack(user);
-    console.log('🔍 Submitting user Notion ID:', submittedByNotionId);
+    console.log('🔍 Submitting user Notion ID lookup result:', submittedByNotionId);
     
     // Save to Notion partner updates database
     const notionToken = process.env.NOTION_TOKEN;
@@ -1960,7 +1997,7 @@ async function handlePartnerUpdateSubmission(slack, payload) {
           rich_text: [{ text: { content: actionItems } }]
         },
         'Submitted By': {
-          people: [{ id: submittedByNotionId || '46ee46c2-f482-48a5-8078-95cfc93815a1' }]
+          people: submittedByNotionId ? [{ id: submittedByNotionId }] : []
         }
       }
     };
@@ -2022,71 +2059,45 @@ async function handlePartnerUpdateSubmission(slack, payload) {
     
     console.log('✅ Partner update saved to Notion successfully');
     
-    // Send notification to admin channel
-    const adminChannelId = 'C06ET1S9SNG'; // reboot_os_admin channel ID
-    try {
-      const healthTrend = healthScore > partnerData.currentHealthScore ? '📈' : 
-                         healthScore < partnerData.currentHealthScore ? '📉' : '➡️';
-      
-      await slack.chat.postMessage({
-        channel: adminChannelId,
-        text: `Partner scorecard submitted by ${user.real_name || user.name}`,
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `*🤝 Partner Update from <@${user.id}>* ${healthTrend}`
-            }
-          },
-          {
-            type: "section",
-            fields: [
-              {
-                type: "mrkdwn",
-                text: `*Partner:*\n${partnerData.partnerName}`
-              },
-              {
-                type: "mrkdwn",
-                text: `*Health Score:*\n${partnerData.currentHealthScore}/10 → ${healthScore}/10`
-              }
-            ]
-          },
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `*Key Updates:*\n${keyUpdates}`
-            }
-          },
-          ...(currentHurdles ? [{
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `*Current Hurdles:*\n${currentHurdles}`
-            }
-          }] : []),
-          ...(actionItems ? [{
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `*Action Items:*\n${actionItems}`
-            }
-          }] : [])
-        ]
-      });
-      console.log('📢 Admin channel notification sent successfully');
-    } catch (adminError) {
-      console.error('❌ Failed to send admin notification:', adminError);
+    // Send simplified notification to admin channel
+    console.log('📨 About to post admin notification to channel:', channelId);
+    
+    if (channelId) {
+      try {
+        const healthTrend = healthScore > partnerData.currentHealthScore ? '📈' : 
+                           healthScore < partnerData.currentHealthScore ? '📉' : '➡️';
+        
+        const adminMessage = {
+          channel: channelId,
+          text: `🤝 Partner update from <@${user.id}> for "${partnerData.partnerName}" (${partnerData.currentHealthScore}/10 → ${healthScore}/10) ${healthTrend}. Check dashboard for details: ${process.env.NEXTAUTH_URL || 'https://reboot-os-dashboard.vercel.app'}`
+        };
+        
+        await Promise.race([
+          slack.chat.postMessage(adminMessage),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Admin channel timeout')), 3000))
+        ]);
+        console.log('✅ Admin notification sent successfully');
+      } catch (adminError) {
+        console.warn('⚠️ Admin notification failed (non-critical):', adminError.message);
+      }
+    } else {
+      console.log('📢 No channel ID configured - skipping admin notification');
     }
     
     // Send confirmation DM to user
     console.log('📨 Sending confirmation DM to user:', user.id);
-    await slack.chat.postMessage({
-      channel: user.id,
-      text: `✅ Thanks for the update! Your partner health report for "${partnerData.partnerName}" has been saved.`
-    });
-    console.log('📨 Confirmation DM sent successfully');
+    try {
+      await Promise.race([
+        slack.chat.postMessage({
+          channel: user.id,
+          text: `✅ Thanks for the update! Your partner health report for "${partnerData.partnerName}" has been saved.`
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('User DM timeout')), 3000))
+      ]);
+      console.log('✅ Confirmation DM sent successfully');
+    } catch (dmError) {
+      console.error('❌ Failed to send confirmation DM:', dmError.message);
+    }
     
   } catch (error) {
     console.error('Error saving partner update:', error);
