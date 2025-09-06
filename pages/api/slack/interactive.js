@@ -397,16 +397,8 @@ export default async function handler(req, res) {
         // Process check-in submission in background
         console.log('🚀 Starting check-in submission with channelId:', channelId);
         
-        // Add timeout protection (Vercel has 10s timeout on hobby plan)
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Function timeout - operation took too long')), 25000)
-        );
-        
-        // Process in background without blocking the response
-        Promise.race([
-          handleCheckinSubmission(slack, payload, channelId),
-          timeoutPromise
-        ]).then(() => {
+        // Process in background without artificial timeout - let Vercel handle function timeout
+        handleCheckinSubmission(slack, payload, channelId).then(() => {
           console.log('✅ Check-in submission handled successfully');
           console.log('✅ FINAL SUCCESS - all operations completed');
         }).catch(async (error) => {
@@ -416,14 +408,18 @@ export default async function handler(req, res) {
           console.error('Error stack:', error.stack);
           console.error('❌ FINAL ERROR - submission failed completely');
           
-          // Send error DM to user as fallback
-          try {
-            await slack.chat.postMessage({
-              channel: payload.user.id,
-              text: `❌ Sorry, there was an error processing your goal update. Please try again or contact support. Error: ${error.message}`
-            });
-          } catch (dmError) {
-            console.error('Failed to send error DM:', dmError);
+          // Only send error DM if Notion write failed (the critical part)
+          if (error.message && error.message.includes('Notion')) {
+            try {
+              await slack.chat.postMessage({
+                channel: payload.user.id,
+                text: `❌ Sorry, there was an error saving your goal update. Please try again or contact support. Error: ${error.message}`
+              });
+            } catch (dmError) {
+              console.error('Failed to send error DM:', dmError);
+            }
+          } else {
+            console.log('⚠️ Non-critical error (likely Slack API), not sending error DM to user');
           }
         });
         
@@ -1126,7 +1122,7 @@ async function handleCheckinSubmission(slack, payload, channelId) {
         // Add timeout to the Slack API call itself
         const slackPromise = slack.chat.postMessage(summaryMessage);
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Slack API timeout')), 15000)
+          setTimeout(() => reject(new Error('Slack API timeout')), 5000)
         );
         
         const result = await Promise.race([slackPromise, timeoutPromise]);
