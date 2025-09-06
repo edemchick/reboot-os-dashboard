@@ -979,6 +979,12 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     
     const notionToken = process.env.NOTION_TOKEN;
     
+    if (!notionToken) {
+      console.error('❌ CRITICAL: NOTION_TOKEN not found in environment');
+      throw new Error('NOTION_TOKEN not configured');
+    }
+    console.log('✅ Notion token found, length:', notionToken.length);
+    
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       console.error('❌ Notion API timeout after 8 seconds');
