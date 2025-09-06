@@ -985,45 +985,59 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     
     const notionToken = process.env.NOTION_TOKEN;
     
-    const response = await fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${notionToken}`,
-        'Content-Type': 'application/json',
-        'Notion-Version': '2022-06-28'
-      },
-      body: JSON.stringify({
-        properties: {
-          Progress: {
-            number: newProgress / 100
-          },
-          'Latest Update Date': {
-            date: {
-              start: new Date().toISOString().split('T')[0]
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+    
+    try {
+      const response = await fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${notionToken}`,
+          'Content-Type': 'application/json',
+          'Notion-Version': '2022-06-28'
+        },
+        body: JSON.stringify({
+          properties: {
+            Progress: {
+              number: newProgress / 100
+            },
+            'Latest Update Date': {
+              date: {
+                start: new Date().toISOString().split('T')[0]
+              }
+            },
+            'Latest Update - What Went Well': {
+              rich_text: [{ text: { content: wentWell } }]
+            },
+            'Latest Update - Challenges': {
+              rich_text: [{ text: { content: challenges } }]
+            },
+            'Latest Update - Completed KRs': {
+              rich_text: [{ text: { content: completedKRs } }]
+            },
+            'Latest Update - Next Week': {
+              rich_text: [{ text: { content: nextWeekFocus } }]
             }
-          },
-          'Latest Update - What Went Well': {
-            rich_text: [{ text: { content: wentWell } }]
-          },
-          'Latest Update - Challenges': {
-            rich_text: [{ text: { content: challenges } }]
-          },
-          'Latest Update - Completed KRs': {
-            rich_text: [{ text: { content: completedKRs } }]
-          },
-          'Latest Update - Next Week': {
-            rich_text: [{ text: { content: nextWeekFocus } }]
           }
-        }
-      })
-    });
+        }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
 
-    if (response.ok) {
-      console.log('✅ Notion progress and updates saved successfully');
-    } else {
-      const errorData = await response.text();
-      console.error('❌ Notion update failed:', response.status, errorData);
-      throw new Error(`Notion update failed: ${response.status} - ${errorData}`);
+      if (response.ok) {
+        console.log('✅ Notion progress and updates saved successfully');
+      } else {
+        const errorData = await response.text();
+        console.error('❌ Notion update failed:', response.status, errorData);
+        throw new Error(`Notion update failed: ${response.status} - ${errorData}`);
+      }
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        console.error('❌ Notion API timeout after 8 seconds');
+        throw new Error('Notion API timeout - please try again');
+      }
+      throw fetchError;
     }
     
   } catch (error) {
