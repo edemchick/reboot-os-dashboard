@@ -991,6 +991,9 @@ async function handleCheckinSubmission(slack, payload, channelId) {
       controller.abort();
     }, 8000);
 
+    console.log('🌐 About to make Notion API request...');
+    console.log('📡 URL:', `https://api.notion.com/v1/pages/${goalData.goalId}`);
+    
     const response = await fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
       method: 'PATCH',
       headers: {
@@ -1037,7 +1040,15 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     }
     
   } catch (error) {
+    clearTimeout(timeoutId); // Clear timeout on any error
     console.error('Error updating Notion progress:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    
+    if (error.name === 'AbortError') {
+      console.error('🔥 NOTION API TIMEOUT CONFIRMED - Request was aborted');
+    }
+    
     // Send error DM to user and stop processing
     try {
       await slack.chat.postMessage({
