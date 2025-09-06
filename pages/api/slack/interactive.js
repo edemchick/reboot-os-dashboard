@@ -1034,63 +1034,14 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     throw error; // Re-throw to prevent Slack posting if Notion fails
   }
   
-  // Post summary to the channel (AFTER Notion success)
-  const summaryMessage = {
+  // Simplified admin notification (AFTER Notion success)
+  const adminMessage = {
     channel: channelId,
-    text: `Goal update from ${user.name}`,
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*Goal Update from <@${user.id}>* ${progressEmoji}`
-        }
-      },
-      {
-        type: "section",
-        fields: [
-          {
-            type: "mrkdwn",
-            text: `*Goal:*\n${goalData.goalTitle}`
-          },
-          {
-            type: "mrkdwn",
-            text: `*Progress:*\n${goalData.currentProgress}% → ${newProgress}%`
-          }
-        ]
-      },
-      {
-        type: "section",
-        fields: [
-          {
-            type: "mrkdwn",
-            text: `*✅ What went well:*\n${wentWell}`
-          },
-          {
-            type: "mrkdwn",
-            text: `*⚠️ Challenges:*\n${challenges}`
-          }
-        ]
-      },
-      ...(completedKRs ? [{
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*🎯 KRs to mark complete:*\n${completedKRs}`
-        }
-      }] : []),
-      ...(nextWeekFocus ? [{
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*📅 Next week focus:*\n${nextWeekFocus}`
-        }
-      }] : [])
-    ]
+    text: `📈 Goal update from <@${user.id}> for "${goalData.goalTitle}" (${goalData.currentProgress}% → ${newProgress}%). Check dashboard for details: ${process.env.NEXTAUTH_URL || 'https://reboot-os-dashboard.vercel.app'}`
   };
   
-  console.log('📨 About to post message to channel:', channelId);
-  console.log('📝 Message summary:', summaryMessage.text);
+  console.log('📨 About to post admin notification to channel:', channelId);
+  console.log('📝 Admin message:', adminMessage.text);
   
   // Validate channel ID
   if (!channelId) {
@@ -1103,66 +1054,49 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     // Don't throw error - just skip channel posting but continue with user DM
   }
   
-  // Only post to channel if channel ID is configured
+  // Send both messages in parallel with fast timeouts
+  const slackPromises = [];
+  
+  // Admin channel notification (if configured)
   if (channelId) {
     if (!channelId.startsWith('C')) {
       console.warn('⚠️ Channel ID format warning - expected to start with "C", got:', channelId);
     }
     
-    // Simple retry with shorter delays for serverless environment
-    let attempt = 0;
-    const maxAttempts = 2; // Reduced attempts to stay within timeout
-    let lastError;
+    const channelPromise = Promise.race([
+      slack.chat.postMessage(adminMessage),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Admin channel timeout')), 3000))
+    ]).then(() => {
+      console.log('✅ Admin notification sent successfully');
+    }).catch((error) => {
+      console.warn('⚠️ Admin notification failed (non-critical):', error.message);
+    });
     
-    while (attempt < maxAttempts) {
-      try {
-        attempt++;
-        console.log(`🚀 Attempt ${attempt}/${maxAttempts} - Calling slack.chat.postMessage`);
-        
-        // Add timeout to the Slack API call itself
-        const slackPromise = slack.chat.postMessage(summaryMessage);
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Slack API timeout')), 5000)
-        );
-        
-        const result = await Promise.race([slackPromise, timeoutPromise]);
-        console.log('✅ Message posted successfully to channel');
-        console.log('📊 Slack API response success:', result.ok);
-        break; // Success, exit retry loop
-        
-      } catch (slackError) {
-        lastError = slackError;
-        console.error(`❌ Attempt ${attempt}/${maxAttempts} failed:`, slackError.message);
-        
-        if (attempt === maxAttempts) {
-          console.error('❌ Final error - not retrying:', slackError);
-          console.error('Full error object:', JSON.stringify(slackError, null, 2));
-          // Don't throw error - continue to user DM
-          console.warn('⚠️ Channel posting failed, but continuing with user DM');
-          break;
-        }
-        
-        // Short wait before retry
-        const delay = 1000; // Just 1 second
-        console.log(`⏳ Waiting ${delay}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
+    slackPromises.push(channelPromise);
   } else {
-    console.log('📢 No channel ID configured - skipping channel notification');
+    console.log('📢 No channel ID configured - skipping admin notification');
   }
-  // Send confirmation DM to user
-  try {
-    console.log('📨 Sending confirmation DM to user:', user.id, user.real_name || user.name);
-    const dmResult = await slack.chat.postMessage({
+  
+  // User confirmation DM
+  const dmPromise = Promise.race([
+    slack.chat.postMessage({
       channel: user.id,
       text: `✅ Thanks for your update! Your progress for "${goalData.goalTitle}" has been updated to ${newProgress}%.`
-    });
-    console.log('✅ Confirmation DM sent successfully:', dmResult.ok);
-  } catch (dmError) {
-    console.error('❌ Failed to send confirmation DM:', dmError.message);
+    }),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('User DM timeout')), 3000))
+  ]).then(() => {
+    console.log('✅ User confirmation DM sent successfully');
+  }).catch((error) => {
+    console.error('❌ Failed to send confirmation DM:', error.message);
     console.error('User details:', { id: user.id, name: user.real_name || user.name });
-  }
+  });
+  
+  slackPromises.push(dmPromise);
+  
+  // Wait for both to complete (or timeout) in parallel
+  console.log(`🚀 Sending ${slackPromises.length} Slack messages in parallel`);
+  await Promise.allSettled(slackPromises);
+  console.log('📬 All Slack notifications processed (success or timeout)');
 }
 
 async function handleFinalGoalSubmission(slack, payload, channelId, submittedKRs) {
