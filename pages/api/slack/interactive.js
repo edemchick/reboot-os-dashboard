@@ -438,23 +438,7 @@ export default async function handler(req, res) {
           agent: undefined
         });
         
-        const partnerData = JSON.parse(payload.view.private_metadata);
-        const values = payload.view.state.values;
-        const user = payload.user;
-        
-        // Extract form responses
-        const healthScore = parseInt(values.health_score.health_score_select.selected_option.value);
-        const keyUpdates = values.key_updates.key_updates_input.value;
-        const currentHurdles = values.current_hurdles.current_hurdles_input.value || '';
-        const actionItems = values.action_items.action_items_input.value || '';
-        
-        console.log('🤝 Partner update data:', {
-          partner: partnerData.partnerName,
-          healthScore,
-          keyUpdates,
-          currentHurdles,
-          actionItems
-        });
+        console.log('🤝 Processing partner update submission...');
         
         // Immediately acknowledge the modal submission to close it
         res.status(200).end();
@@ -1923,6 +1907,10 @@ function createPartnerUpdateModal(partnerData) {
 }
 
 async function handlePartnerUpdateSubmission(slack, payload, channelId) {
+  console.log('🎯 handlePartnerUpdateSubmission started');
+  console.log('📍 Channel ID received:', channelId);
+  console.log('👤 User:', payload.user.id, payload.user.name);
+  
   const partnerData = JSON.parse(payload.view.private_metadata);
   const values = payload.view.state.values;
   const user = payload.user;
