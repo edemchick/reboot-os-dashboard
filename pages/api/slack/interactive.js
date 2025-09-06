@@ -1034,6 +1034,14 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     throw error; // Re-throw to prevent Slack posting if Notion fails
   }
   
+  console.log('🎉 Notion write successful! Now preparing Slack notifications...');
+  console.log('📊 Variables check:', { 
+    userId: user.id, 
+    goalTitle: goalData.goalTitle, 
+    currentProgress: goalData.currentProgress, 
+    newProgress: newProgress 
+  });
+  
   // Simplified admin notification (AFTER Notion success)
   const adminMessage = {
     channel: channelId,
