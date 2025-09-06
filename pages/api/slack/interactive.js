@@ -377,7 +377,7 @@ export default async function handler(req, res) {
         
         return res.status(200).end();
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'goal_checkin') {
-        console.log('📅 Processing check-in submission...');
+        console.log('🎯🎯🎯 GOALS CHECK-IN TRIGGERED - Processing submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
         const channelId = process.env.SLACK_CHANNEL_ID || 'C06ET1S9SNG'; // fallback to reboot_os_admin
         const slack = new WebClient(slackToken, {
@@ -425,7 +425,7 @@ export default async function handler(req, res) {
         
         return;
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'partner_update') {
-        console.log('🤝 Processing partner update submission...');
+        console.log('🤝🤝🤝 PARTNER UPDATE TRIGGERED - Processing submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
         const slack = new WebClient(slackToken, {
           retryConfig: {
