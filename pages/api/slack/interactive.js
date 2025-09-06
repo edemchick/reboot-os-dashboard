@@ -979,6 +979,12 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     
     const notionToken = process.env.NOTION_TOKEN;
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.error('❌ Notion API timeout after 8 seconds');
+      controller.abort();
+    }, 8000);
+
     const response = await fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
       method: 'PATCH',
       headers: {
@@ -1009,8 +1015,12 @@ async function handleCheckinSubmission(slack, payload, channelId) {
             rich_text: [{ text: { content: nextWeekFocus } }]
           }
         }
-      })
+      }),
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
+    console.log('📡 Notion API response received:', response.status);
 
     if (response.ok) {
       console.log('✅ Notion progress and updates saved successfully');
