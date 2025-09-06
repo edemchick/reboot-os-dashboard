@@ -985,16 +985,11 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     }
     console.log('✅ Notion token found, length:', notionToken.length);
     
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      console.error('❌ Notion API timeout after 8 seconds');
-      controller.abort();
-    }, 8000);
-
     console.log('🌐 About to make Notion API request...');
     console.log('📡 URL:', `https://api.notion.com/v1/pages/${goalData.goalId}`);
     
-    const response = await fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
+    // Use Promise.race for reliable timeout handling in serverless
+    const fetchPromise = fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${notionToken}`,
@@ -1024,11 +1019,17 @@ async function handleCheckinSubmission(slack, payload, channelId) {
             rich_text: [{ text: { content: nextWeekFocus } }]
           }
         }
-      }),
-      signal: controller.signal
+      })
     });
     
-    clearTimeout(timeoutId);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => {
+        console.error('❌ Notion API timeout after 6 seconds');
+        reject(new Error('Notion API timeout'));
+      }, 6000)
+    );
+    
+    const response = await Promise.race([fetchPromise, timeoutPromise]);
     console.log('📡 Notion API response received:', response.status);
 
     if (response.ok) {
@@ -1040,13 +1041,12 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     }
     
   } catch (error) {
-    clearTimeout(timeoutId); // Clear timeout on any error
     console.error('Error updating Notion progress:', error);
     console.error('Error name:', error.name);
     console.error('Error message:', error.message);
     
-    if (error.name === 'AbortError') {
-      console.error('🔥 NOTION API TIMEOUT CONFIRMED - Request was aborted');
+    if (error.message === 'Notion API timeout') {
+      console.error('🔥 NOTION API TIMEOUT CONFIRMED - Promise.race timeout reached');
     }
     
     // Send error DM to user and stop processing
