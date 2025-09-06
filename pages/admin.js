@@ -20,6 +20,8 @@ export default function AdminPage() {
   const [statusData, setStatusData] = useState(null);
   const [slackLoading, setSlackLoading] = useState(false);
   const [partnerSlackLoading, setPartnerSlackLoading] = useState(false);
+  const [testSlackLoading, setTestSlackLoading] = useState(false);
+  const [testPartnerSlackLoading, setTestPartnerSlackLoading] = useState(false);
   const [quarterlyConfig, setQuarterlyConfig] = useState(null);
   const [quarterlyLoading, setQuarterlyLoading] = useState(false);
   const [adminConfig, setAdminConfig] = useState(null);
@@ -419,6 +421,72 @@ export default function AdminPage() {
     }
   };
 
+  const sendTestCheckins = async () => {
+    setTestSlackLoading(true);
+    setMessage({ type: '', text: '' });
+    
+    try {
+      const response = await fetch('/api/slack/send-test-checkins', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send test check-ins');
+      }
+      
+      setMessage({ 
+        type: 'success', 
+        text: `Successfully sent ${data.sentCount} test check-ins to ${data.testUser}!` 
+      });
+    } catch (err) {
+      setMessage({ 
+        type: 'error', 
+        text: `Error sending test check-ins: ${err.message}` 
+      });
+      console.error('Error:', err);
+    } finally {
+      setTestSlackLoading(false);
+    }
+  };
+
+  const sendTestPartnerCheckins = async () => {
+    setTestPartnerSlackLoading(true);
+    setMessage({ type: '', text: '' });
+    
+    try {
+      const response = await fetch('/api/admin/trigger-test-partner-checkins', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send test partner check-ins');
+      }
+      
+      setMessage({ 
+        type: 'success', 
+        text: `Successfully sent ${data.sentCount} test partner check-ins to ${data.testUser}!` 
+      });
+    } catch (err) {
+      setMessage({ 
+        type: 'error', 
+        text: `Error sending test partner check-ins: ${err.message}` 
+      });
+      console.error('Error:', err);
+    } finally {
+      setTestPartnerSlackLoading(false);
+    }
+  };
+
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -535,6 +603,16 @@ export default function AdminPage() {
                     <MessageSquare className="h-4 w-4" />
                     {slackLoading ? 'Sending...' : 'Send Manual Check-In'}
                   </button>
+                  
+                  <button
+                    onClick={sendTestCheckins}
+                    disabled={testSlackLoading || !adminConfig?.testUser}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title={!adminConfig?.testUser ? 'Set a test user in Admin Configuration first' : 'Send test check-ins to the configured test user'}
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    {testSlackLoading ? 'Sending Test...' : 'Send Test Check-In'}
+                  </button>
                 </div>
 
                 {statusData && (
@@ -625,9 +703,20 @@ export default function AdminPage() {
                   <button
                     onClick={sendManualPartnerCheckins}
                     disabled={partnerSlackLoading}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    {partnerSlackLoading ? 'Sending...' : 'Send Manual Partner Check-ins'}
+                    <MessageSquare className="h-4 w-4" />
+                    {partnerSlackLoading ? 'Sending...' : 'Send Manual Check-In'}
+                  </button>
+
+                  <button
+                    onClick={sendTestPartnerCheckins}
+                    disabled={testPartnerSlackLoading || !adminConfig?.testUser}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title={!adminConfig?.testUser ? 'Set a test user in Admin Configuration first' : 'Send test partner check-ins to the configured test user'}
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    {testPartnerSlackLoading ? 'Sending Test...' : 'Send Test Check-In'}
                   </button>
                 </div>
 
@@ -899,6 +988,28 @@ export default function AdminPage() {
                   <p>• <strong>Slack Name:</strong> Alternative name to try when looking up users in Slack (e.g., "Bob" instead of "Robert") - helps with check-in delivery</p>
                   <p>• <strong>Notion User ID:</strong> Find these by checking existing goal assignments in your Notion database</p>
                   <p>• These mappings are used for goal ownership, Slack check-ins, and carry-forward functionality</p>
+                </div>
+              </div>
+
+              {/* Test User Section */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Test User (for testing check-ins)
+                </label>
+                <div className="max-w-md">
+                  <input
+                    type="text"
+                    value={adminConfig.testUser || ''}
+                    onChange={(e) => setAdminConfig(prev => ({
+                      ...prev,
+                      testUser: e.target.value
+                    }))}
+                    placeholder="@username or U1234567890 (Slack user ID) or test@rebootmotion.com"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    All test check-ins will be sent to this user. Can be Slack username (@username), user ID (U1234567890), or email address
+                  </p>
                 </div>
               </div>
 

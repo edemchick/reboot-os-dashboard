@@ -7,6 +7,7 @@ const CONFIG_FILE = path.join(process.cwd(), 'config', 'admin-config.json');
 const DEFAULT_CONFIG = {
   adminEmails: ['edemchick@rebootmotion.com', 'jbuffi@rebootmotion.com'],
   atRiskThreshold: 15, // percentage points behind expected progress
+  testUser: '', // Slack user ID or email for testing check-ins
   checkInTime: {
     hour: 10, // 10 AM
     timezone: 'America/New_York'
@@ -117,6 +118,11 @@ export default async function handler(req, res) {
       // Validate SMART goals guidance
       if (newConfig.smartGoalsGuidance !== undefined && typeof newConfig.smartGoalsGuidance !== 'string') {
         return res.status(400).json({ error: 'smartGoalsGuidance must be a string' });
+      }
+      
+      // Validate test user
+      if (newConfig.testUser !== undefined && typeof newConfig.testUser !== 'string') {
+        return res.status(400).json({ error: 'testUser must be a string' });
       }
       
       const success = saveAdminConfig(newConfig);

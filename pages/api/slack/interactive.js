@@ -399,7 +399,7 @@ export default async function handler(req, res) {
         
         // Add timeout protection (Vercel has 10s timeout on hobby plan)
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Function timeout - operation took too long')), 8000)
+          setTimeout(() => reject(new Error('Function timeout - operation took too long')), 25000)
         );
         
         // Process in background without blocking the response
@@ -1123,7 +1123,7 @@ async function handleCheckinSubmission(slack, payload, channelId) {
       // Add timeout to the Slack API call itself
       const slackPromise = slack.chat.postMessage(summaryMessage);
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Slack API timeout')), 5000)
+        setTimeout(() => reject(new Error('Slack API timeout')), 15000)
       );
       
       const result = await Promise.race([slackPromise, timeoutPromise]);

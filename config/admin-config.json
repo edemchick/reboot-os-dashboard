@@ -4,6 +4,7 @@
     "jbuffi@rebootmotion.com"
   ],
   "atRiskThreshold": 2,
+  "testUser": "U010M4L012N",
   "checkInTime": {
     "hour": 10,
     "timezone": "America/New_York"
