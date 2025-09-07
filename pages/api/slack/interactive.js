@@ -1014,6 +1014,17 @@ async function handleCheckinSubmission(slack, payload, channelId) {
 
     if (response.ok) {
       console.log('✅ Notion progress and updates saved successfully');
+      
+      // Step 3: Send confirmation DM to user
+      try {
+        await slack.chat.postMessage({
+          channel: user.id,
+          text: `✅ Your goal update for "${goalData.goalTitle}" has been submitted successfully! Progress updated: ${goalData.currentProgress}% → ${newProgress}%`
+        });
+        console.log('✅ User confirmation DM sent');
+      } catch (dmError) {
+        console.error('Failed to send confirmation DM to user:', dmError);
+      }
     } else {
       const errorData = await response.text();
       console.error('❌ Notion update failed:', response.status, errorData);
