@@ -2026,7 +2026,7 @@ async function handlePartnerUpdateSubmission(slack, payload) {
     console.log('✅ Partner update saved to Notion successfully');
     
     // Send simplified admin notification (like goals)
-    const adminChannelId = 'C06ET1S9SNG'; // reboot_os_admin channel ID
+    const adminChannelId = process.env.SLACK_CHANNEL_ID || 'C06ET1S9SNG'; // reboot_os_admin channel ID
     try {
       const healthTrend = healthScore > partnerData.currentHealthScore ? '📈' : 
                          healthScore < partnerData.currentHealthScore ? '📉' : '➡️';
