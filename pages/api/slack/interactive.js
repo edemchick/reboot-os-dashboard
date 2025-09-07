@@ -979,41 +979,7 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     
     const notionToken = process.env.NOTION_TOKEN;
     
-    if (!notionToken) {
-      console.error('❌ CRITICAL: NOTION_TOKEN not found in environment');
-      throw new Error('NOTION_TOKEN not configured');
-    }
-    console.log('✅ Notion token found, length:', notionToken.length);
-    
-    console.log('🌐 About to make Notion API request...');
-    console.log('📡 URL:', `https://api.notion.com/v1/pages/${goalData.goalId}`);
-    
-    // First, test basic Notion API connectivity with a simpler request
-    let notionAvailable = true;
-    try {
-      console.log('🧪 Testing basic Notion API connectivity...');
-      const testResponse = await Promise.race([
-        fetch('https://api.notion.com/v1/users/me', {
-          headers: {
-            'Authorization': `Bearer ${notionToken}`,
-            'Content-Type': 'application/json',
-            'Notion-Version': '2022-06-28'
-          }
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Test API timeout')), 3000))
-      ]);
-      console.log('✅ Basic Notion API test successful:', testResponse.status);
-    } catch (testError) {
-      console.error('❌ Basic Notion API test failed:', testError.message);
-      console.log('🔄 Will proceed with Slack-only mode (no Notion updates)');
-      notionAvailable = false;
-    }
-    
-    // Only attempt Notion update if API is available
-    if (notionAvailable) {
-    
-    // Use Promise.race for reliable timeout handling in serverless
-    const fetchPromise = fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
+    const response = await fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${notionToken}`,
@@ -1045,16 +1011,6 @@ async function handleCheckinSubmission(slack, payload, channelId) {
         }
       })
     });
-    
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => {
-        console.error('❌ Notion API timeout after 6 seconds');
-        reject(new Error('Notion API timeout'));
-      }, 6000)
-    );
-    
-    const response = await Promise.race([fetchPromise, timeoutPromise]);
-    console.log('📡 Notion API response received:', response.status);
 
     if (response.ok) {
       console.log('✅ Notion progress and updates saved successfully');
@@ -1064,38 +1020,24 @@ async function handleCheckinSubmission(slack, payload, channelId) {
       throw new Error(`Notion update failed: ${response.status} - ${errorData}`);
     }
     
-    } catch (error) {
-      console.error('Error updating Notion progress:', error);
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      
-      if (error.message === 'Notion API timeout') {
-        console.error('🔥 NOTION API TIMEOUT CONFIRMED - Promise.race timeout reached');
-      }
-      
-      // Send error DM to user and stop processing
-      try {
-        await slack.chat.postMessage({
-          channel: user.id,
-          text: `❌ Sorry, there was an error saving your update for "${goalData.goalTitle}". Please try again or contact support. Error: ${error.message}`
-        });
-      } catch (dmError) {
-        console.error('Failed to send error DM:', dmError);
-      }
-      throw error; // Re-throw to prevent Slack posting if Notion fails
+  } catch (error) {
+    console.error('Error updating Notion progress:', error);
+    // Send error DM to user and stop processing
+    try {
+      await slack.chat.postMessage({
+        channel: user.id,
+        text: `❌ Sorry, there was an error saving your update for "${goalData.goalTitle}". Please try again or contact support. Error: ${error.message}`
+      });
+    } catch (dmError) {
+      console.error('Failed to send error DM:', dmError);
     }
-    
-    } else {
-      console.log('⚠️ Skipping Notion update due to API connectivity issues');
-      console.log('📝 Would have updated:', goalData.goalTitle, 'to', newProgress + '%');
-    }
+    throw error; // Re-throw to prevent Slack posting if Notion fails
+  }
   
-  // Simplified admin notification (regardless of Notion success)
-  const statusIcon = notionAvailable ? '📈' : '⚠️';
-  const statusText = notionAvailable ? '' : ' (Notion update skipped - API unavailable)';
+  // Simplified admin notification (AFTER Notion success)
   const adminMessage = {
     channel: channelId,
-    text: `${statusIcon} Goal update from <@${user.id}> for "${goalData.goalTitle}" (${goalData.currentProgress}% → ${newProgress}%)${statusText}. Check dashboard: ${process.env.NEXTAUTH_URL || 'https://reboot-os-dashboard.vercel.app'}`
+    text: `📈 Goal update from <@${user.id}> for "${goalData.goalTitle}" (${goalData.currentProgress}% → ${newProgress}%). Check dashboard for details: ${process.env.NEXTAUTH_URL || 'https://reboot-os-dashboard.vercel.app'}`
   };
   
   console.log('📨 About to post admin notification to channel:', channelId);
@@ -1136,14 +1078,10 @@ async function handleCheckinSubmission(slack, payload, channelId) {
   }
   
   // User confirmation DM
-  const confirmationText = notionAvailable 
-    ? `✅ Thanks for your update! Your progress for "${goalData.goalTitle}" has been updated to ${newProgress}%.`
-    : `✅ Thanks for your update! Your check-in for "${goalData.goalTitle}" (${newProgress}%) has been recorded. Note: Dashboard update temporarily unavailable due to connectivity issues.`;
-  
   const dmPromise = Promise.race([
     slack.chat.postMessage({
       channel: user.id,
-      text: confirmationText
+      text: `✅ Thanks for your update! Your progress for "${goalData.goalTitle}" has been updated to ${newProgress}%.`
     }),
     new Promise((_, reject) => setTimeout(() => reject(new Error('User DM timeout')), 3000))
   ]).then(() => {
