@@ -2075,23 +2075,30 @@ async function getNotionUserIdFromSlack(slackUser) {
     const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     const employees = configData.employees;
     
-    console.log('🔍 Looking up Slack user:', slackUser.real_name || slackUser.name);
+    console.log('🔍 Looking up Slack user:', {
+      real_name: slackUser.real_name,
+      name: slackUser.name,
+      id: slackUser.id
+    });
     
     // Try to match by real name first
     const userRealName = slackUser.real_name || slackUser.name;
     let employee = employees.find(emp => emp.name === userRealName);
+    console.log('📝 Exact name match result:', employee ? employee.name : 'No match');
     
     // If not found, try by slackName if it exists
     if (!employee) {
       employee = employees.find(emp => emp.slackName === userRealName);
+      console.log('📝 SlackName match result:', employee ? employee.name : 'No match');
     }
     
-    // If still not found, try partial matches
+    // If still not found, try partial matches (but log what we're matching)
     if (!employee) {
       employee = employees.find(emp => 
         emp.name.toLowerCase().includes(userRealName.toLowerCase()) ||
         userRealName.toLowerCase().includes(emp.name.toLowerCase())
       );
+      console.log('📝 Partial match result:', employee ? employee.name : 'No match');
     }
     
     if (employee && employee.notionUserId) {
