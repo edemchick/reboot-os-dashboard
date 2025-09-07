@@ -2025,7 +2025,7 @@ async function handlePartnerUpdateSubmission(slack, payload) {
     
     console.log('✅ Partner update saved to Notion successfully');
     
-    // Send notification to admin channel
+    // Send simplified admin notification (like goals)
     const adminChannelId = 'C06ET1S9SNG'; // reboot_os_admin channel ID
     try {
       const healthTrend = healthScore > partnerData.currentHealthScore ? '📈' : 
@@ -2033,50 +2033,7 @@ async function handlePartnerUpdateSubmission(slack, payload) {
       
       await slack.chat.postMessage({
         channel: adminChannelId,
-        text: `Partner scorecard submitted by ${user.real_name || user.name}`,
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `*🤝 Partner Update from <@${user.id}>* ${healthTrend}`
-            }
-          },
-          {
-            type: "section",
-            fields: [
-              {
-                type: "mrkdwn",
-                text: `*Partner:*\n${partnerData.partnerName}`
-              },
-              {
-                type: "mrkdwn",
-                text: `*Health Score:*\n${partnerData.currentHealthScore}/10 → ${healthScore}/10`
-              }
-            ]
-          },
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `*Key Updates:*\n${keyUpdates}`
-            }
-          },
-          ...(currentHurdles ? [{
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `*Current Hurdles:*\n${currentHurdles}`
-            }
-          }] : []),
-          ...(actionItems ? [{
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `*Action Items:*\n${actionItems}`
-            }
-          }] : [])
-        ]
+        text: `🤝 Partner update from <@${user.id}> for "${partnerData.partnerName}" (${partnerData.currentHealthScore}/10 → ${healthScore}/10) ${healthTrend}. Check dashboard for details: ${process.env.NEXTAUTH_URL || 'https://reboot-os-dashboard.vercel.app'}`
       });
       console.log('📢 Admin channel notification sent successfully');
     } catch (adminError) {
