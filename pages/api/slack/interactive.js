@@ -1962,8 +1962,10 @@ async function handlePartnerUpdateSubmission(slack, payload) {
         'Action Items': {
           rich_text: [{ text: { content: actionItems } }]
         },
-        'Submitted By': {
-          people: [{ id: submittedByNotionId || '46ee46c2-f482-48a5-8078-95cfc93815a1' }]
+        'Submitted By': submittedByNotionId ? {
+          people: [{ id: submittedByNotionId }]
+        } : {
+          rich_text: [{ text: { content: `${user.real_name || user.name} (Slack user not mapped to Notion)` } }]
         }
       }
     };
@@ -2078,22 +2080,45 @@ async function getNotionUserIdFromSlack(slackUser) {
     console.log('🔍 Looking up Slack user:', {
       real_name: slackUser.real_name,
       name: slackUser.name,
-      id: slackUser.id
+      id: slackUser.id,
+      profile: slackUser.profile // Add profile info for more context
+    });
+    
+    console.log('🔍 Available employees in config:');
+    employees.forEach((emp, index) => {
+      console.log(`  ${index + 1}. name: "${emp.name}", slackName: "${emp.slackName || 'not set'}", notionUserId: ${emp.notionUserId}`);
     });
     
     // Try to match by real name first
     const userRealName = slackUser.real_name || slackUser.name;
+    console.log(`🔍 Attempting to match user: "${userRealName}"`);
+    
     let employee = employees.find(emp => emp.name === userRealName);
-    console.log('📝 Exact name match result:', employee ? employee.name : 'No match');
+    console.log('📝 Exact name match attempt:', {
+      searchFor: userRealName,
+      found: employee ? employee.name : 'No match',
+      matchedId: employee ? employee.notionUserId : null
+    });
     
     // If not found, try by slackName if it exists
     if (!employee) {
       employee = employees.find(emp => emp.slackName === userRealName);
-      console.log('📝 SlackName match result:', employee ? employee.name : 'No match');
+      console.log('📝 SlackName match attempt:', {
+        searchFor: userRealName,
+        found: employee ? employee.name : 'No match',
+        matchedId: employee ? employee.notionUserId : null
+      });
     }
     
     // If still not found, try partial matches (but log what we're matching)
     if (!employee) {
+      console.log('🔍 Attempting partial matches...');
+      employees.forEach(emp => {
+        const nameIncludesUser = emp.name.toLowerCase().includes(userRealName.toLowerCase());
+        const userIncludesName = userRealName.toLowerCase().includes(emp.name.toLowerCase());
+        console.log(`  - "${emp.name}": nameIncludesUser=${nameIncludesUser}, userIncludesName=${userIncludesName}`);
+      });
+      
       employee = employees.find(emp => 
         emp.name.toLowerCase().includes(userRealName.toLowerCase()) ||
         userRealName.toLowerCase().includes(emp.name.toLowerCase())

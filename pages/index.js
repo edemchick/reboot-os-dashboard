@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
-import { Target, TrendingUp, AlertCircle, CheckCircle, Clock, LogOut, Settings, ChevronDown, ChevronRight, Plus, BookOpen, ArrowRight, Calendar } from 'lucide-react';
+import { Target, TrendingUp, AlertCircle, CheckCircle, Clock, LogOut, Settings, ChevronDown, ChevronRight, ChevronUp, Plus, BookOpen, ArrowRight, Calendar } from 'lucide-react';
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [partnersLoading, setPartnersLoading] = useState(false);
   const [partnersError, setPartnersError] = useState(null);
   const [expandedPartners, setExpandedPartners] = useState({});
+  const [partnerSort, setPartnerSort] = useState({ key: null, direction: 'asc' });
 
 
   // Fetch partners data from API
@@ -60,6 +61,56 @@ export default function Dashboard() {
       ...prev,
       [partnerId]: !prev[partnerId]
     }));
+  };
+
+  // Function to handle partner sorting
+  const handlePartnerSort = (key) => {
+    const direction = partnerSort.key === key && partnerSort.direction === 'asc' ? 'desc' : 'asc';
+    setPartnerSort({ key, direction });
+  };
+
+  // Function to get sorted partners
+  const getSortedPartners = () => {
+    if (!partnerSort.key) return partners;
+    
+    return [...partners].sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (partnerSort.key) {
+        case 'partnerName':
+          aValue = a.partnerName?.toLowerCase() || '';
+          bValue = b.partnerName?.toLowerCase() || '';
+          break;
+        case 'category':
+          aValue = a.category?.toLowerCase() || '';
+          bValue = b.category?.toLowerCase() || '';
+          break;
+        case 'mainContact':
+          aValue = a.mainContact?.toLowerCase() || '';
+          bValue = b.mainContact?.toLowerCase() || '';
+          break;
+        case 'currentHealthScore':
+          aValue = parseFloat(a.currentHealthScore) || 0;
+          bValue = parseFloat(b.currentHealthScore) || 0;
+          break;
+        case 'trend':
+          aValue = (a.currentHealthScore || 0) - (a.previousHealthScore || 0);
+          bValue = (b.currentHealthScore || 0) - (b.previousHealthScore || 0);
+          break;
+        case 'lastUpdated':
+          aValue = new Date(a.lastUpdated || 0);
+          bValue = new Date(b.lastUpdated || 0);
+          break;
+        default:
+          return 0;
+      }
+      
+      if (partnerSort.direction === 'asc') {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
   };
 
   // Function to toggle update expansion
@@ -1118,23 +1169,77 @@ export default function Dashboard() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Partner
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                          onClick={() => handlePartnerSort('partnerName')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Partner
+                            <div className="flex flex-col">
+                              <ChevronUp className={`h-3 w-3 ${partnerSort.key === 'partnerName' && partnerSort.direction === 'asc' ? 'text-blue-600' : 'text-gray-400'}`} />
+                              <ChevronDown className={`h-3 w-3 ${partnerSort.key === 'partnerName' && partnerSort.direction === 'desc' ? 'text-blue-600' : 'text-gray-400'}`} />
+                            </div>
+                          </div>
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Category
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                          onClick={() => handlePartnerSort('category')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Category
+                            <div className="flex flex-col">
+                              <ChevronUp className={`h-3 w-3 ${partnerSort.key === 'category' && partnerSort.direction === 'asc' ? 'text-blue-600' : 'text-gray-400'}`} />
+                              <ChevronDown className={`h-3 w-3 ${partnerSort.key === 'category' && partnerSort.direction === 'desc' ? 'text-blue-600' : 'text-gray-400'}`} />
+                            </div>
+                          </div>
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Main Contact
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                          onClick={() => handlePartnerSort('mainContact')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Main Contact
+                            <div className="flex flex-col">
+                              <ChevronUp className={`h-3 w-3 ${partnerSort.key === 'mainContact' && partnerSort.direction === 'asc' ? 'text-blue-600' : 'text-gray-400'}`} />
+                              <ChevronDown className={`h-3 w-3 ${partnerSort.key === 'mainContact' && partnerSort.direction === 'desc' ? 'text-blue-600' : 'text-gray-400'}`} />
+                            </div>
+                          </div>
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Health Score
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                          onClick={() => handlePartnerSort('currentHealthScore')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Health Score
+                            <div className="flex flex-col">
+                              <ChevronUp className={`h-3 w-3 ${partnerSort.key === 'currentHealthScore' && partnerSort.direction === 'asc' ? 'text-blue-600' : 'text-gray-400'}`} />
+                              <ChevronDown className={`h-3 w-3 ${partnerSort.key === 'currentHealthScore' && partnerSort.direction === 'desc' ? 'text-blue-600' : 'text-gray-400'}`} />
+                            </div>
+                          </div>
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Trend
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                          onClick={() => handlePartnerSort('trend')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Trend
+                            <div className="flex flex-col">
+                              <ChevronUp className={`h-3 w-3 ${partnerSort.key === 'trend' && partnerSort.direction === 'asc' ? 'text-blue-600' : 'text-gray-400'}`} />
+                              <ChevronDown className={`h-3 w-3 ${partnerSort.key === 'trend' && partnerSort.direction === 'desc' ? 'text-blue-600' : 'text-gray-400'}`} />
+                            </div>
+                          </div>
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Last Updated
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                          onClick={() => handlePartnerSort('lastUpdated')}
+                        >
+                          <div className="flex items-center gap-2">
+                            Last Updated
+                            <div className="flex flex-col">
+                              <ChevronUp className={`h-3 w-3 ${partnerSort.key === 'lastUpdated' && partnerSort.direction === 'asc' ? 'text-blue-600' : 'text-gray-400'}`} />
+                              <ChevronDown className={`h-3 w-3 ${partnerSort.key === 'lastUpdated' && partnerSort.direction === 'desc' ? 'text-blue-600' : 'text-gray-400'}`} />
+                            </div>
+                          </div>
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Details
@@ -1142,7 +1247,7 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {partners.map((partner) => (
+                      {getSortedPartners().map((partner) => (
                         <>
                           <tr 
                             key={partner.id} 
