@@ -391,39 +391,14 @@ export default async function handler(req, res) {
           agent: undefined
         });
         
-        // Immediately acknowledge the modal submission to close it
-        res.status(200).json({});
-        
-        // Process check-in submission in background
+        // Process synchronously like partner updates (which work)
         console.log('🚀 Starting check-in submission with channelId:', channelId);
         
-        // Process in background without artificial timeout - let Vercel handle function timeout
-        handleCheckinSubmission(slack, payload, channelId).then(() => {
-          console.log('✅ Check-in submission handled successfully');
-          console.log('✅ FINAL SUCCESS - all operations completed');
-        }).catch(async (error) => {
-          console.error('❌ Check-in submission error:', error);
-          console.error('Error name:', error.name);
-          console.error('Error message:', error.message);
-          console.error('Error stack:', error.stack);
-          console.error('❌ FINAL ERROR - submission failed completely');
-          
-          // Only send error DM if Notion write failed (the critical part)
-          if (error.message && error.message.includes('Notion')) {
-            try {
-              await slack.chat.postMessage({
-                channel: payload.user.id,
-                text: `❌ Sorry, there was an error saving your goal update. Please try again or contact support. Error: ${error.message}`
-              });
-            } catch (dmError) {
-              console.error('Failed to send error DM:', dmError);
-            }
-          } else {
-            console.log('⚠️ Non-critical error (likely Slack API), not sending error DM to user');
-          }
-        });
+        // Handle check-in submission synchronously
+        await handleCheckinSubmission(slack, payload, channelId);
+        console.log('✅ Check-in submission handled successfully');
         
-        return;
+        return res.status(200).end();
       } else if (payload.type === 'view_submission' && payload.view.callback_id === 'partner_update') {
         console.log('🤝 Processing partner update submission...');
         const slackToken = process.env.SLACK_BOT_TOKEN;
