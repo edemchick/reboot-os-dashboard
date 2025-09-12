@@ -969,7 +969,7 @@ async function handleCheckinSubmission(slack, payload, channelId) {
   const progressChange = newProgress - goalData.currentProgress;
   const progressEmoji = progressChange > 0 ? '📈' : progressChange < 0 ? '📉' : '➡️';
   
-  // UPDATE NOTION FIRST (MOST IMPORTANT)
+  // UPDATE NOTION FIRST (MOST IMPORTANT) - using same retry logic as working partner updates
   try {
     console.log('=== Updating Notion Progress FIRST ===');
     console.log('Goal ID:', goalData.goalId);
@@ -978,39 +978,76 @@ async function handleCheckinSubmission(slack, payload, channelId) {
     console.log('Update Data:', { wentWell, challenges, completedKRs, nextWeekFocus });
     
     const notionToken = process.env.NOTION_TOKEN;
+    if (!notionToken) {
+      throw new Error('NOTION_TOKEN not configured');
+    }
     
-    const response = await fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${notionToken}`,
-        'Content-Type': 'application/json',
-        'Notion-Version': '2022-06-28'
-      },
-      body: JSON.stringify({
-        properties: {
-          Progress: {
-            number: newProgress / 100
+    // Use same retry logic as partner updates (which work)
+    let response;
+    let attempt = 0;
+    const maxAttempts = 3;
+    
+    while (attempt < maxAttempts) {
+      try {
+        attempt++;
+        console.log(`🔄 Goal PATCH attempt ${attempt}/${maxAttempts}...`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // Same 10s timeout as partners
+        
+        response = await fetch(`https://api.notion.com/v1/pages/${goalData.goalId}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${notionToken}`,
+            'Content-Type': 'application/json',
+            'Notion-Version': '2022-06-28'
           },
-          'Latest Update Date': {
-            date: {
-              start: new Date().toISOString().split('T')[0]
+          body: JSON.stringify({
+            properties: {
+              Progress: {
+                number: newProgress / 100
+              },
+              'Latest Update Date': {
+                date: {
+                  start: new Date().toISOString().split('T')[0]
+                }
+              },
+              'Latest Update - What Went Well': {
+                rich_text: [{ text: { content: wentWell } }]
+              },
+              'Latest Update - Challenges': {
+                rich_text: [{ text: { content: challenges } }]
+              },
+              'Latest Update - Completed KRs': {
+                rich_text: [{ text: { content: completedKRs } }]
+              },
+              'Latest Update - Next Week': {
+                rich_text: [{ text: { content: nextWeekFocus } }]
+              }
             }
-          },
-          'Latest Update - What Went Well': {
-            rich_text: [{ text: { content: wentWell } }]
-          },
-          'Latest Update - Challenges': {
-            rich_text: [{ text: { content: challenges } }]
-          },
-          'Latest Update - Completed KRs': {
-            rich_text: [{ text: { content: completedKRs } }]
-          },
-          'Latest Update - Next Week': {
-            rich_text: [{ text: { content: nextWeekFocus } }]
-          }
+          }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        console.log(`📡 Attempt ${attempt} response status:`, response.status);
+        
+        // If successful, break out of retry loop
+        break;
+        
+      } catch (error) {
+        console.error(`❌ Attempt ${attempt} failed:`, error.message);
+        
+        if (attempt === maxAttempts) {
+          throw error; // Re-throw on final attempt
         }
-      })
-    });
+        
+        // Wait before retrying (exponential backoff)
+        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+        console.log(`⏳ Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
 
     if (response.ok) {
       console.log('✅ Notion progress and updates saved successfully');
