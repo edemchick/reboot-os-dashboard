@@ -2,6 +2,7 @@
   "employees": [
     {
       "name": "Jimmy Buffi",
+      "slackName": "jbuffi",
       "notionUserId": "0e594686-ffd9-424b-9daa-0306638a2221",
       "email": "jbuffi@rebootmotion.com"
     },
@@ -19,6 +20,7 @@
     },
     {
       "name": "Creagor Elsom",
+      "slackName": "celsom",
       "notionUserId": "33227521-8428-4238-94e0-53401caa529b",
       "email": "celsom@rebootmotion.com"
     },
