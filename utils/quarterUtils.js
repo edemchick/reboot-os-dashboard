@@ -5,6 +5,8 @@ export function getQuarterInfo() {
   const year = now.getFullYear();
   const month = now.getMonth(); // 0-indexed (0 = January, 11 = December)
 
+  console.log('getQuarterInfo called - Date:', now.toISOString(), 'Month:', month);
+
   let quarter, startDate, endDate;
 
   if (month >= 0 && month <= 2) {
