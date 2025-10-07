@@ -1,8 +1,8 @@
 import { getQuarterlyConfig } from '../pages/api/admin/quarterly-config.js';
 
 // Calculate quarter info based on configurable dates
-export function getQuarterInfo() {
-  const config = getQuarterlyConfig();
+export async function getQuarterInfo() {
+  const config = await getQuarterlyConfig();
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1; // January is 1

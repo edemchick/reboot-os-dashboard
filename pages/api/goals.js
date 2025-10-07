@@ -159,7 +159,7 @@ export default async function handler(req, res) {
 
     // Import and use the configurable quarter logic
     const { getQuarterInfo } = await import('../../utils/quarterUtils.js');
-    const { quarter: currentQuarter, quarterProgress } = getQuarterInfo();
+    const { quarter: currentQuarter, quarterProgress } = await getQuarterInfo();
 
     res.status(200).json({ 
       goals: transformedGoals,
