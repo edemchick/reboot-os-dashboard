@@ -57,8 +57,8 @@ async function getQuarterlyConfig() {
       const quarterName = quarterMatch[1]; // Q1, Q2, Q3, or Q4
 
       // Extract start and end dates
-      const startDate = properties['start dates']?.date?.start;
-      const endDate = properties['end date']?.date?.start;
+      const startDate = properties['start_date']?.date?.start;
+      const endDate = properties['end_date']?.date?.start;
 
       if (startDate && endDate) {
         const start = new Date(startDate);
@@ -134,8 +134,8 @@ async function saveQuarterlyConfig(config) {
       const endDate = `${endYear}-${String(data.end.month).padStart(2, '0')}-${String(data.end.day).padStart(2, '0')}`;
 
       const properties = {
-        'start dates': { date: { start: startDate } },
-        'end date': { date: { start: endDate } }
+        'start_date': { date: { start: startDate } },
+        'end_date': { date: { start: endDate } }
       };
 
       if (existingPages[quarter]) {
