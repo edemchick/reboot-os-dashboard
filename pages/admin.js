@@ -758,7 +758,8 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {quarterlyConfig && (
+        {/* Quarterly config is now hardcoded to standard calendar quarters */}
+        {false && quarterlyConfig && (
           <div className="bg-white rounded-lg shadow-sm border mt-6">
             <div className="p-6 border-b">
               <div className="flex items-center gap-2">

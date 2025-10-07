@@ -1,69 +1,43 @@
-import { getQuarterlyConfig } from '../pages/api/admin/quarterly-config.js';
-
-// Calculate quarter info based on configurable dates
-export async function getQuarterInfo() {
-  const config = await getQuarterlyConfig();
+// Calculate quarter info based on standard calendar quarters
+// Q1: Jan-Mar, Q2: Apr-Jun, Q3: Jul-Sep, Q4: Oct-Dec
+export function getQuarterInfo() {
   const now = new Date();
   const year = now.getFullYear();
-  const month = now.getMonth() + 1; // January is 1
-  const day = now.getDate();
+  const month = now.getMonth(); // 0-indexed (0 = January, 11 = December)
 
-  // Check each quarter to see which one we're in
-  for (const [quarterName, quarterConfig] of Object.entries(config.quarters)) {
-    const { start, end } = quarterConfig;
-    
-    let startDate, endDate;
-    
-    if (end.nextYear) {
-      // Handle Q4 case where end date is in next year
-      startDate = new Date(year, start.month - 1, start.day);
-      endDate = new Date(year + 1, end.month - 1, end.day);
-      
-      // Check if we're in the current year part of Q4 or next year part
-      if ((month > start.month || (month === start.month && day >= start.day)) ||
-          (month < end.month || (month === end.month && day <= end.day))) {
-        
-        // We're in this quarter
-        const totalQuarterDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-        const daysSinceStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-        const quarterProgress = Math.max(0, Math.min(1, daysSinceStart / totalQuarterDays));
-        
-        return {
-          quarter: quarterName,
-          quarterProgress: quarterProgress * 100,
-          startDate,
-          endDate
-        };
-      }
-    } else {
-      // Handle normal quarters within the same year
-      startDate = new Date(year, start.month - 1, start.day);
-      endDate = new Date(year, end.month - 1, end.day);
-      
-      // Check if current date falls within this quarter
-      if ((month > start.month || (month === start.month && day >= start.day)) &&
-          (month < end.month || (month === end.month && day <= end.day))) {
-        
-        // We're in this quarter
-        const totalQuarterDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-        const daysSinceStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-        const quarterProgress = Math.max(0, Math.min(1, daysSinceStart / totalQuarterDays));
-        
-        return {
-          quarter: quarterName,
-          quarterProgress: quarterProgress * 100,
-          startDate,
-          endDate
-        };
-      }
-    }
+  let quarter, startDate, endDate;
+
+  if (month >= 0 && month <= 2) {
+    // Q1: January 1 - March 31
+    quarter = 'Q1';
+    startDate = new Date(year, 0, 1);
+    endDate = new Date(year, 2, 31);
+  } else if (month >= 3 && month <= 5) {
+    // Q2: April 1 - June 30
+    quarter = 'Q2';
+    startDate = new Date(year, 3, 1);
+    endDate = new Date(year, 5, 30);
+  } else if (month >= 6 && month <= 8) {
+    // Q3: July 1 - September 30
+    quarter = 'Q3';
+    startDate = new Date(year, 6, 1);
+    endDate = new Date(year, 8, 30);
+  } else {
+    // Q4: October 1 - December 31
+    quarter = 'Q4';
+    startDate = new Date(year, 9, 1);
+    endDate = new Date(year, 11, 31);
   }
 
-  // Fallback - shouldn't happen with proper config
+  // Calculate progress through the quarter
+  const totalQuarterDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+  const daysSinceStart = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+  const quarterProgress = Math.max(0, Math.min(100, (daysSinceStart / totalQuarterDays) * 100));
+
   return {
-    quarter: 'Q1',
-    quarterProgress: 0,
-    startDate: new Date(year, 0, 11),
-    endDate: new Date(year, 3, 10)
+    quarter,
+    quarterProgress,
+    startDate,
+    endDate
   };
 }

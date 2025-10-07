@@ -157,9 +157,9 @@ export default async function handler(req, res) {
       return a.focus.localeCompare(b.focus);
     });
 
-    // Import and use the configurable quarter logic
+    // Import and use the standard quarter logic
     const { getQuarterInfo } = await import('../../utils/quarterUtils.js');
-    const { quarter: currentQuarter, quarterProgress } = await getQuarterInfo();
+    const { quarter: currentQuarter, quarterProgress } = getQuarterInfo();
 
     res.status(200).json({ 
       goals: transformedGoals,
